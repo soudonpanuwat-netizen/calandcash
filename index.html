@@ -2082,7 +2082,7 @@ function HomeScreen({ user, loans, txns, foods, debtPayments, setTab, emergencyF
   const interest   = Math.round(loanAmount * INTEREST_RATE / 100);
   const totalDebt  = loanAmount + interest;
   const paidAmount = (debtPayments[myApp?.id] || 0);
-  const remaining  = Math.max(0, totalDebt - paidAmount);
+  const totalPaid = paidAmount;
   const debtPct    = totalDebt > 0 ? Math.round(paidAmount/totalDebt*100) : 0;
   const totalIn    = txns.filter(t=>t.type==='income').reduce((a,t)=>a+t.amount,0);
   const totalOut   = txns.filter(t=>t.type==='expense').reduce((a,t)=>a+t.amount,0);
