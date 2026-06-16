@@ -2079,19 +2079,19 @@ function HomeScreen({ user, loans, txns, foods, debtPayments, setTab, emergencyF
   const dateStr = now.toLocaleDateString('th-TH', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
   const myApp      = loans.find(l=>l.userId===user.name);
  const myApp = loans.find(l => l.userId === user.name);
+const myApp      = loans.find(l=>l.userId===user.name);
 const loanAmount = myApp?.amount || 0;
-const interest = Math.round(loanAmount * 0.05); 
-const totalDebt = loanAmount + interest;
+const interest   = Math.round(loanAmount * INTEREST_RATE / 100);
+const totalDebt  = loanAmount + interest;
 const paidAmount = (debtPayments[myApp?.id] || 0);
-const totalPaid = paidAmount;
-const remaining = Math.max(0, totalDebt - paidAmount); // ตัวนี้สำคัญมากครับ!
-const debtPct = totalDebt > 0 ? Math.round(paidAmount / totalDebt * 100) : 0;
-  const calPct     = clamp(Math.round(totalCal/targetCal*100),0,100);
-
-  const risk = totalIn === 0 ? 0 :
-    totalOut > totalIn ? 80 :
-    debtPct < 30 && totalDebt > 0 ? 55 :
-    totalOut / totalIn > 0.7 ? 45 : 20;
+const totalPaid  = paidAmount;
+const remaining  = Math.max(0, totalDebt - paidAmount);
+const debtPct    = totalDebt > 0 ? Math.round(paidAmount/totalDebt*100) : 0;
+const totalIn    = txns.filter(t=>t.type==='income').reduce((a,t)=>a+t.amount,0);
+const totalOut   = txns.filter(t=>t.type==='expense').reduce((a,t)=>a+t.amount,0);
+const balance    = totalIn - totalOut;
+const totalCal   = foods.reduce((a,f)=>a+f.cal,0);
+const targetCal  = user.targetCal || 2000;
   const riskLabel = risk >= 70 ? 'สูงมาก' : risk >= 50 ? 'สูง' : risk >= 35 ? 'ปานกลาง' : 'ต่ำ';
   const riskColor = risk >= 70 ? '#DC2626' : risk >= 50 ? '#F97316' : risk >= 35 ? '#EAB308' : '#059669';
 
