@@ -6871,7 +6871,16 @@ function AnalyticsScreen({ txns, loans, debtPayments, foods, user, workouts, set
   const [activeChart, setActiveChart] = useState('finance');
   const [woDate,  setWoDate]  = useState(()=>new Date().toISOString().slice(0,10));
   const [woCal,   setWoCal]   = useState('');
-  const [woLabel, setWoLabel] = useState('วิ่ง 1 ชั่วโมง');
+  const [woLabel, setWoLabel] = useState('วิ่ง 1 ชั่วโมง');const [woMins,  setWoMins]  = useState('');
+const [woImg,   setWoImg]   = useState(null);
+const woImgRef = useRef(null);
+const pickWoImg = (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onloadend = () => setWoImg(reader.result);
+  reader.readAsDataURL(file);
+};
   const WO_PRESETS = [
     {label:'วิ่ง 1 ชั่วโมง',cal:610},{label:'ว่ายน้ำ 1 ชั่วโมง',cal:500},
     {label:'ปั่นจักรยาน',cal:450},{label:'โยคะ',cal:250},{label:'ยกเวท',cal:350},
