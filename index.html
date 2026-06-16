@@ -370,8 +370,8 @@ function getRollingLimit() {
 // Save one day's report — rolling log: oldest entry removed when over limit
 function saveDailyReport(dateStr, income, expense, cal, txnList, foodList) {
   try {
-    const entry = {
-      date:      dateStr,
+    const entry = { id:Date.now(), date:woDate, label:woLabel, cal:c, mins:+woMins||null, img:woImg||null };
+date:      dateStr,
       income:    Math.round(income  * 100) / 100,
       expense:   Math.round(expense * 100) / 100,
       calories:  Math.round(cal),
