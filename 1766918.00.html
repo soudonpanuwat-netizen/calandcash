@@ -1,0 +1,1839 @@
+
+<!DOCTYPE html>
+
+<html lang="th">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>Money & Calorie (รวมสุขภาพและการเงิน)</title>
+<!-- 0. Supabase JS client -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<!-- jsPDF for PDF export -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<!-- 1. React & ReactDOM (must come first) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
+<!-- 2. prop-types (required by Recharts UMD before it loads) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prop-types/15.8.1/prop-types.min.js" crossorigin="anonymous"></script>
+<!-- 3. Recharts (depends on React + prop-types globals) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.12.7/Recharts.min.js" crossorigin="anonymous"></script>
+<!-- 4. Babel standalone (transpiles JSX at runtime) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js" crossorigin="anonymous"></script>
+<!-- 5. Tailwind -->
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<style>
+  *{box-sizing:border-box;font-family:'Inter',sans-serif}
+  body{margin:0;background:#F7F8FA}
+  input[type=number]::-webkit-inner-spin-button,
+  input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+  input[type=number]{-moz-appearance:textfield}
+  :root{--sat:env(safe-area-inset-top,0px);--sab:env(safe-area-inset-bottom,0px)}
+  h1,h2,h3,h4,h5,h6{background:transparent!important;-webkit-text-fill-color:initial}
+  /* ── Claymorphic global tokens ── */
+  :root{
+    --clay-bg:       #F0E8DC;
+    --clay-card:     #FAF5EE;
+    --clay-border:   #E2D5C3;
+    --clay-inset:    #EDE4D8;
+    --clay-navy:     #1C3D5A;
+    --clay-navy-mid: #2B5278;
+    --clay-sea:      #4A7FA5;
+    --clay-burgundy: #8B2635;
+    --clay-red:      #A83240;
+    --clay-ink:      #1C2C3A;
+    --clay-sub:      #6B7E8D;
+    --clay-sand:     #DDD4C4;
+    --shadow-out: 4px 6px 14px rgba(160,130,100,0.28), -2px -2px 8px rgba(255,252,245,0.9);
+    --shadow-in:  inset 2px 3px 8px rgba(160,130,100,0.22), inset -1px -1px 5px rgba(255,252,245,0.8);
+    --shadow-btn: 3px 5px 12px rgba(140,110,80,0.3), -1px -1px 6px rgba(255,252,245,0.7);
+    --shadow-pressed: inset 2px 3px 10px rgba(140,110,80,0.35);
+  }
+  /* Clay card */
+  .clay-card{
+    background:var(--clay-card);
+    border-radius:24px;
+    box-shadow:var(--shadow-out);
+    border:1px solid var(--clay-border);
+  }
+  /* Clay input */
+  .clay-input{
+    background:var(--clay-inset);
+    box-shadow:var(--shadow-in);
+    border:1px solid #D4C9B8;
+    border-radius:14px;
+    color:var(--clay-ink);
+    padding:12px 16px;
+    font-size:14px;
+    width:100%;
+    outline:none;
+    font-family:'Inter',sans-serif;
+    box-sizing:border-box;
+  }
+  .clay-input::placeholder{color:#A09080}
+  /* Clay button primary (burgundy) */
+  .clay-btn-primary{
+    background:linear-gradient(145deg,#A83240,#8B2635);
+    box-shadow:var(--shadow-btn);
+    border:none;border-radius:16px;
+    color:#fff;font-weight:800;
+    cursor:pointer;transition:all .15s;
+    padding:13px 0;width:100%;font-size:14px;
+    font-family:'Inter',sans-serif;
+  }
+  .clay-btn-primary:active{box-shadow:var(--shadow-pressed);transform:scale(0.98)}
+  /* Clay button navy */
+  .clay-btn-navy{
+    background:linear-gradient(145deg,#2B5278,#1C3D5A);
+    box-shadow:var(--shadow-btn);
+    border:none;border-radius:16px;
+    color:#fff;font-weight:800;
+    cursor:pointer;transition:all .15s;
+    padding:13px 0;width:100%;font-size:14px;
+    font-family:'Inter',sans-serif;
+  }
+  .clay-btn-navy:active{box-shadow:var(--shadow-pressed);transform:scale(0.98)}
+  /* Clay button ghost (light cream) */
+  .clay-btn-ghost{
+    background:linear-gradient(145deg,#FEFCF7,#EDE5D8);
+    box-shadow:var(--shadow-out);
+    border:1px solid var(--clay-border);border-radius:14px;
+    color:var(--clay-ink);font-weight:700;
+    cursor:pointer;transition:all .15s;
+    font-family:'Inter',sans-serif;
+  }
+  .clay-btn-ghost:active{box-shadow:var(--shadow-pressed);transform:scale(0.97)}
+
+
+/* == Admin Dashboard styles == */ 
+.adm-page{max-width:860px;margin:0 auto} 
+.adm-stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:12px 0} 
+.adm-stat-card{background:var(--clay-card);border-radius:16px;padding:12px 10px; 
+text-align:center;box-shadow:var(--shadow-out);border:1px solid var(--clay-border)} 
+.adm-stat-val{font-size:26px;font-weight:900;line-height:1.1} 
+.adm-stat-lbl{font-size:9px;font-weight:700;color:var(--clay-sub);text-transform:uppercase; 
+letter-spacing:1px;margin-top:3px} 
+.adm-table-wrap{overflow-x:auto;margin-top:4px} 
+.adm-table{width:100%;border-collapse:collapse;font-size:12px} 
+.adm-table th{background:var(--clay-inset);color:var(--clay-sub);font-size:9px;font-weight:700; 
+text-transform:uppercase;letter-spacing:1px;padding:9px 10px;text-align:left; 
+border-bottom:1.5px solid var(--clay-border)} 
+.adm-table td{padding:10px;border-bottom:1px solid var(--clay-border);vertical-align:middle} 
+.adm-table tr:last-child td{border-bottom:none} 
+.adm-table tr:hover td{background:rgba(237,228,216,0.4)} 
+.adm-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 9px; 
+border-radius:20px;font-size:9px;font-weight:700;white-space:nowrap} 
+.adm-badge-none    {background:#F0E8DC;color:#8A9BA8} 
+.adm-badge-invited {background:#E8EFF5;color:#2B5278} 
+.adm-badge-pending {background:#F5EDDF;color:#C4622D} 
+.adm-badge-approved{background:#E8F5EE;color:#1A5C35} 
+.adm-badge-rejected{background:#F5EBEB;color:#A83240} 
+.adm-btn{border:none;border-radius:9px;padding:5px 10px;font-size:10px;font-weight:800; 
+cursor:pointer;font-family:inherit;transition:all .15s;white-space:nowrap} 
+.adm-btn:active{transform:scale(0.96)} 
+.adm-btn-invite {background:linear-gradient(145deg,#2B5278,#1C3D5A);color:#fff;box-shadow:var(--shadow-btn)} 
+.adm-btn-approve{background:linear-gradient(145deg,#2E7D4E,#1A5C35);color:#fff;box-shadow:var(--shadow-btn)} 
+.adm-btn-reject {background:var(--clay-inset);color:#A83240;border:1px solid #E2D5C3;box-shadow:var(--shadow-in)} 
+.adm-search{display:flex;gap:8px;margin-bottom:12px} 
+.adm-filter-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px} 
+.adm-filter{border:1px solid var(--clay-border);background:var(--clay-inset); 
+box-shadow:var(--shadow-in);border-radius:20px;padding:4px 12px;font-size:10px; 
+font-weight:700;color:var(--clay-sub);cursor:pointer;font-family:inherit} 
+.adm-filter.act{background:linear-gradient(145deg,#2B5278,#1C3D5A); 
+box-shadow:var(--shadow-btn);color:#fff;border-color:transparent} 
+@media(max-width:600px){ 
+.adm-stat-grid{grid-template-columns:1fr 1fr} 
+.adm-table td:nth-child(3),.adm-table th:nth-child(3){display:none} 
+} 
+/* Clay pill tag */ 
+.clay-pill{ 
+display:inline-flex;align-items:center; 
+background:var(--clay-inset); 
+box-shadow:var(--shadow-in); 
+border:1px solid var(--clay-border); 
+border-radius:20px; 
+padding:5px 14px;font-size:11px;font-weight:700; 
+color:var(--clay-sub);cursor:pointer; 
+font-family:'Inter',sans-serif;transition:all .15s; 
+} 
+.clay-pill.active{ 
+background:linear-gradient(145deg,#2B5278,#1C3D5A); 
+box-shadow:var(--shadow-btn); 
+color:#fff;border-color:transparent; 
+} 
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+
+<script type="text/babel">
+const { useState, useEffect, useCallback, useRef } = React;
+
+// Safe Recharts destructure — guard against UMD not being ready
+if (typeof Recharts === 'undefined') {
+  throw new Error('Recharts UMD not loaded. Check script order and prop-types CDN.');
+}
+const {
+  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, Legend, BarChart, Bar
+} = Recharts;
+
+// 
+// SUPABASE CLIENT
+// 
+const SUPABASE_URL  = 'https://ndipoaxxkbqwxafgvgmlu.supabase.co';
+const SUPABASE_ANON = 'sb_publishable_HAHfwDUD3x68d-w7JQYbFw_WhVfvBta';
+// NOTE: This is the publishable/anon key — safe to include in frontend code.
+// Never put service_role / secret keys here.
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// ── Global color palette (used across all components) ──
+const C = { 
+  skyTop:   '#C8D8E8',  // wave-sky blue 
+  skyBot:   '#F4EFE6',  // washi paper warm 
+  sakura:   '#F4B8C8',  // sakura pink 
+  leaf:     '#A8D5BA',  // soft green 
+  cloud:    'rgba(255,253,248,0.88)', 
+  ink:      '#1C2C3A',  // sumi ink dark navy 
+  inkLight: '#6B7E8D', 
+  sub:      '#6B7E8D',  // subtext color 
+  accent:   '#2B5278',  // The Great Wave primary 
+  accentDk: '#1C3D5A',  // deep navy 
+};
+
+/*
+  ── Supabase RLS Setup (run once in Supabase SQL Editor) ─────────
+  CREATE TABLE transactions (
+    id          BIGINT       PRIMARY KEY,
+    type        TEXT         NOT NULL,
+    cat         TEXT,
+    amount      NUMERIC      NOT NULL,
+    note        TEXT,
+    date        TEXT,
+    bank        TEXT         DEFAULT 'cash',
+    user_id     UUID         REFERENCES auth.users(id),
+    created_at  TIMESTAMPTZ  DEFAULT now()
+  );
+  ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
+  CREATE POLICY "user_own_data" ON transactions
+    FOR ALL USING (auth.uid() = user_id);
+  ─────────────────────────────────────────────────────────────── */
+
+// ── Supabase helper: sync a transaction row ──────────────────
+async function sbInsertTxn(txn, userId) {
+  try {
+    const { error } = await supabase.from('transactions').insert([{
+      id:         txn.id,
+      type:       txn.type,
+      cat:        txn.cat,
+      amount:     txn.amount,
+      note:       txn.note || null,
+      date:       txn.date,
+      bank:       txn.bank || 'cash',
+      user_id:    userId,
+      created_at: new Date().toISOString(),
+    }]);
+    if (error) console.warn('Supabase insert error:', error.message);
+  } catch(e) { console.warn('Supabase unreachable:', e.message); }
+}
+
+// ── Supabase helper: load transactions for a user ───────────
+async function sbLoadTxns(userId) {
+  try {
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('user_id', userId)
+      .order('id', { ascending: false });
+    if (error) { console.warn('Supabase fetch error:', error.message); return null; }
+    return data || [];
+  } catch(e) { console.warn('Supabase unreachable:', e.message); return null; }
+}
+
+// ── Supabase helper: delete a transaction row ────────────────
+async function sbDeleteTxn(id) {
+  try {
+    const { error } = await supabase.from('transactions').delete().eq('id', id);
+    if (error) console.warn('Supabase delete error:', error.message);
+  } catch(e) { console.warn('Supabase unreachable:', e.message); }
+}
+
+// ── Supabase Auth helpers ────────────────────────────────────
+async function sbSignIn(email, password) {
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  return { user: data?.user || null, error };
+}
+async function sbSignUp(email, password) {
+  const { data, error } = await supabase.auth.signUp({ email, password });
+  if (!error && data?.user) {
+    // Auto-create profile row with email on signup
+    try {
+      await supabase.from('user_profiles').upsert([{
+        user_id:     data.user.id,
+        email:       email,
+        loan_status: 'none',
+        created_at:  new Date().toISOString(),
+        updated_at:  new Date().toISOString(),
+      }], { onConflict: 'user_id', ignoreDuplicates: true });
+    } catch(e) { /* non-fatal */ }
+  }
+  return { user: data?.user || null, error };
+}
+async function sbSignOut() {
+  await supabase.auth.signOut();
+}
+async function sbGetSession() {
+  const { data } = await supabase.auth.getSession();
+  return data?.session?.user || null;
+}
+
+// ── Supabase: save user profile ────────────────────────────
+async function sbSaveProfile(userId, profile) {
+  try {
+    const { error } = await supabase.from('user_profiles').upsert([{
+      user_id:     userId,
+      email:       profile.email       || null,
+      nickname:    profile.nickname    || null,
+      phone:       profile.phone       || null,
+      height:      profile.height      ? +profile.height : null,
+      weight:      profile.weight      ? +profile.weight : null,
+      age:         profile.age         ? +profile.age    : null,
+      gender:      profile.gender      || null,
+      loan_status: profile.loan_status || 'none',
+      updated_at:  new Date().toISOString(),
+    }], { onConflict: 'user_id' });
+    if (error) { console.warn('Profile save error:', error.message); return false; }
+    return true;
+  } catch(e) { console.warn('Profile save failed:', e.message); return false; }
+}
+
+async function sbLoadProfile(userId) {
+  try {
+    const { data, error } = await supabase
+      .from('user_profiles').select('*').eq('user_id', userId).single();
+    if (error) return null;
+    return data;
+  } catch(e) { return null; }
+}
+
+// ── Supabase: save daily summary ────────────────────────────
+async function sbSaveDailySummary(userId, dateStr, income, expense, cal, txnCount, foodCount) {
+  try {
+    const { error } = await supabase.from('daily_summaries').upsert([{
+      user_id:    userId,
+      date:       dateStr,           // 'YYYY-MM-DD'
+      income:     income   || 0,
+      expense:    expense  || 0,
+      calories:   cal      || 0,
+      txn_count:  txnCount || 0,
+      food_count: foodCount|| 0,
+      net:        (income||0) - (expense||0),
+      saved_at:   new Date().toISOString(),
+    }], { onConflict: 'user_id,date' });
+    if (error) console.warn('Daily summary save error:', error.message);
+    return !error;
+  } catch(e) { console.warn('saveDailySummary failed:', e.message); return false; }
+}
+
+// ── Supabase: load last N days of summaries ───────────────
+async function sbLoadDailySummaries(userId, days=15) {
+  try {
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+    const sinceStr = since.toISOString().slice(0,10);
+    const { data, error } = await supabase
+      .from('daily_summaries')
+      .select('*')
+      .eq('user_id', userId)
+      .gte('date', sinceStr)
+      .order('date', { ascending: false });
+    if (error) { console.warn('Supabase fetch error:', error.message); return null; }
+    return data || [];
+  } catch(e) { console.warn('Supabase unreachable:', e.message); return null; }
+}
+
+// ── localStorage key for daily budget reset ──
+const BUDGET_RESET_KEY = 'calcash_dailyBudgetReset';
+
+// ── localStorage key for calorie daily reset ──
+const CAL_RESET_KEY = 'calcash_calDailyReset';
+
+// ── localStorage key for debt monthly reset ──
+const DEBT_RESET_KEY = 'calcash_debtMonthlyReset';
+
+// ── localStorage key for mock user ──
+const MOCK_KEY = 'calcash_mockUser';
+
+// ── localStorage key for invitations ──
+const INVITE_KEY = 'calcash_invitations';
+
+// ── localStorage key for daily session ──
+const SESSION_KEY = 'calcash_todaySession';
+
+// ── Mock users list ──
+const MOCK_USERS = ['Alice', 'Bob', 'Charlie'];
+
+// ── localStorage wrapper (simulating IndexedDB) ──
+const db = {
+  get: () => {
+    try { return JSON.parse(localStorage.getItem('calcash_data')||'{}'); } catch { return {}; }
+  },
+  set: (patch) => {
+    try {
+      const cur = db.get();
+      localStorage.setItem('calcash_data', JSON.stringify({...cur, ...patch}));
+    } catch {}
+  }
+};
+
+// ── Categories ──
+const INCOME_CATS = ['เงินเดือน','โบนัส','ลงทุน','ขายของ','อื่นๆ'];
+const EXPENSE_CATS = ['อาหาร','ที่พัก','ยานพาหนะ','สุขภาพ','ความบันเทิง','ช้อปปิ้ง','สาธารณูปโภค','อื่นๆ'];
+
+// ── Utility functions ──
+const fmt = (n) => new Intl.NumberFormat('th-TH').format(Math.round(n));
+const fmtM = (n) => {
+  const abs = Math.abs(n);
+  if (abs >= 1e6) return (n/1e6).toFixed(1)+'M';
+  if (abs >= 1e3) return (n/1e3).toFixed(1)+'K';
+  return fmt(n);
+};
+const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+const todayTH = () => new Date().toLocaleString('th-TH');
+
+// ── Day themes ──
+const DAY_THEMES = [
+  {emoji:'🌊',grad:'linear-gradient(135deg,#4A7FA5 0%,#2B5278 100%)',glow:'rgba(75,127,165,0.4)'},
+  {emoji:'💼',grad:'linear-gradient(135deg,#2B5278 0%,#1C3D5A 100%)',glow:'rgba(43,82,120,0.4)'},
+  {emoji:'🌳',grad:'linear-gradient(135deg,#A8D5BA 0%,#7BC67D 100%)',glow:'rgba(168,213,186,0.4)'},
+  {emoji:'🌸',grad:'linear-gradient(135deg,#F4B8C8 0%,#E89BA8 100%)',glow:'rgba(244,184,200,0.4)'},
+  {emoji:'⚡',grad:'linear-gradient(135deg,#FFD700 0%,#FFA500 100%)',glow:'rgba(255,215,0,0.4)'},
+  {emoji:'🎉',grad:'linear-gradient(135deg,#FF6B9D 0%,#C44569 100%)',glow:'rgba(255,107,157,0.4)'},
+  {emoji:'🌙',grad:'linear-gradient(135deg,#1C3D5A 0%,#0F2537 100%)',glow:'rgba(28,61,90,0.4)'},
+];
+
+// ── Toast notification hook ──
+function useToast() {
+  const [toast, setToast] = useState(null);
+  const show = (msg, color='#2B5278') => {
+    setToast({msg, color});
+    setTimeout(() => setToast(null), 3000);
+  };
+  const comp = toast ? (
+    <div style={{
+      position:'fixed',bottom:20,left:20,right:20,zIndex:9999,
+      background:toast.color,color:'#fff',padding:'12px 16px',
+      borderRadius:12,fontSize:13,fontWeight:700,
+      boxShadow:'0 4px 12px rgba(0,0,0,0.15)',
+      animation:'slideUp .3s ease'
+    }}>
+      {toast.msg}
+      <style>{`@keyframes slideUp{from{transform:translateY(100px);opacity:0}to{transform:translateY(0);opacity:1}}`}</style>
+    </div>
+  ) : null;
+  return [show, comp];
+}
+
+// ── Progress bar component ──
+function Progress({pct, color, height=8}) {
+  return (
+    <div style={{width:'100%',height,borderRadius:height/2,background:'#E5E7EB',overflow:'hidden'}}>
+      <div style={{width:pct+'%',height:'100%',background:color,transition:'width .3s ease'}}/>
+    </div>
+  );
+}
+
+// ── Card wrapper ──
+function Card({children, className}) {
+  return (
+    <div className={`clay-card ${className||''}`}>
+      {children}
+    </div>
+  );
+}
+
+// ── Auto-reset at midnight (transactions) ──
+function useAutoReset({ txns, setTxns, foods, setFoods, sbUser }) {
+  useEffect(() => {
+    const check = () => {
+      const todayStr = new Date().toLocaleDateString('th-TH',{day:'2-digit',month:'2-digit',year:'numeric'});
+      const lastReset = localStorage.getItem(SESSION_KEY) || '';
+      if (lastReset !== todayStr) {
+        // New day — reset transactions and foods
+        setTxns([]);
+        setFoods([]);
+        db.set({txns:[], foods:[]});
+        localStorage.setItem(SESSION_KEY, todayStr);
+        console.log('[AutoReset] Daily reset done for', todayStr);
+      }
+    };
+    check();
+    const id = setInterval(check, 30_000);
+    return () => clearInterval(id);
+  }, []);
+}
+
+// ── Daily calorie counter reset ──
+function useCalDailyReset({ foods, setFoods }) {
+  useEffect(() => {
+    const check = () => {
+      const todayStr = new Date().toLocaleDateString('th-TH',{day:'2-digit',month:'2-digit',year:'numeric'});
+      const lastReset = localStorage.getItem(CAL_RESET_KEY) || '';
+      if (lastReset !== todayStr) {
+        // Foods accumulated before today are kept; only reset "today's" cal counter
+        // We store today's date so tomorrow we know to reset
+        if (lastReset) {
+          // Move foods older than today to history-only (keep all), clear today's foods
+          // "today's calorie count" = foods with today's date
+          const prevDate = lastReset; // date we're resetting FROM
+          // Filter: keep foods NOT from yesterday (keep history), wipe today's fresh count
+          setFoods(prev => {
+            // Keep only foods that are NOT from the previous day (prevDate)
+            // This preserves multi-day history but resets today's running total
+            const kept = prev.filter(f => {
+              try {
+                // f.date is Thai locale string — check if it was saved on prevDate
+                // We mark foods with isoDate when saved; fallback: keep all (no reset)
+                return f.isoDate ? f.isoDate !== prevDate : true;
+              } catch { return true; }
+            });
+            db.set({ foods: kept });
+            return kept;
+          });
+        }
+        localStorage.setItem(CAL_RESET_KEY, todayStr);
+        console.log('[CalReset] Daily calorie counter reset for', todayStr);
+      }
+    };
+    check();
+    // Check every 30 seconds so reset happens close to midnight
+    const id = setInterval(check, 30_000);
+    return () => clearInterval(id);
+  }, []);
+}
+
+// ── Daily budget reset hook ──
+function useDailyBudgetReset({ dailyBudget, setDailyBudget }) {
+  useEffect(() => {
+    const check = () => {
+      const todayStr = new Date().toLocaleDateString('th-TH',{day:'2-digit',month:'2-digit',year:'numeric'});
+      const lastReset = localStorage.getItem(BUDGET_RESET_KEY) || '';
+      if (lastReset !== todayStr) {
+        // New day — reload budget from localStorage (or use default)
+        try {
+          const saved = +localStorage.getItem('calcash_dailyBudget') || 500;
+          setDailyBudget(saved);
+        } catch {
+          setDailyBudget(500);
+        }
+        localStorage.setItem(BUDGET_RESET_KEY, todayStr);
+        console.log('[BudgetReset] Daily budget reset for', todayStr);
+      }
+    };
+    check();
+    const id = setInterval(check, 30_000);
+    return () => clearInterval(id);
+  }, []);
+}
+
+// ----------------------------------------------------------------
+// REAL-TIME ACCOUNT BALANCE SYSTEM
+// Single source of truth: localStorage key 'calcash_accounts'
+// Sync mechanism: custom 'calcash_acc_update' event
+// Any component that calls save() broadcasts to ALL useAccounts
+// instances → Dashboard updates instantly after Transaction save
+// ----------------------------------------------------------------
+const ACC_KEY        = 'calcash_accounts';
+const ACC_EVENT      = 'calcash_acc_update';   // broadcast channel
+const ACC_DEFAULTS   = [
+  { id:'cash',  name:'เงินสด',   emoji:'💵', color:'#2D7A4A', balance:0 },
+  { id:'KBANK', name:'กสิกรไทย', emoji:'🟢', color:'#00A950', balance:0 },
+  { id:'KTB',   name:'กรุงไทย',  emoji:'🔵', color:'#009FDA', balance:0 },
+];
+
+// ── Bank Logo system ─────────────────────────────────────────
+// BankLogo uses color+name props — no external images, no hardcoded SVG per bank
+
+// Helper: get bank logo component
+// id-to-abbrev map — ถ้า id ตรงก็ใช้ abbrev นั้น ถ้าไม่ตรงใช้ตัวอักษรแรกของชื่อ
+const BANK_ABBREV = {
+  cash:'$', KBANK:'K', SCB:'SCB', KTB:'KTB', BBL:'BBL',
+  GSB:'GSB', BAY:'BAY', TTB:'TTB', BAAC:'ธกส', other:'B',
+};
+// id-to-color map (สีประจำธนาคาร)
+const BANK_COLOR = {
+  cash:'#2D7A4A', KBANK:'#00A950', SCB:'#4E2E7F', KTB:'#009FDA',
+  BBL:'#1A3A6B',  GSB:'#D8007D',  BAY:'#E8B800',  TTB:'#002D63',
+  BAAC:'#006432', other:'#6B7E8D',
+};
+
+function BankLogo({ id, name, color, size=36 }) {
+  // สีใช้ color prop (จาก account object) เป็นหลัก ถ้าไม่มีถึงดู id
+  const bg = color || BANK_COLOR[id] || '#6B7E8D';
+  // ตัวอักษรย่อ: ดู id map ก่อน ถ้าไม่มีใช้ตัวแรกของชื่อ
+  const abbrev = BANK_ABBREV[id] || (name||id||'B').slice(0,3).toUpperCase();
+  const fontSize = abbrev.length <= 1 ? size*0.48
+                 : abbrev.length <= 3 ? size*0.32
+                 : size*0.26;
+  return (
+    <div style={{
+      width:size, height:size, borderRadius:size*0.26,
+      background:bg,
+      display:'flex', alignItems:'center', justifyContent:'center',
+      flexShrink:0, overflow:'hidden',
+      boxShadow:`0 2px 8px ${bg}50`,
+    }}>
+      {id === 'cash' ? (
+        <svg width={size*0.52} height={size*0.52} viewBox="0 0 24 24" fill="none"
+          stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="2" y="6" width="20" height="12" rx="2"/>
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M6 12h.01M18 12h.01"/>
+        </svg>
+      ) : (
+        <span style={{
+          fontSize, fontWeight:900, color:'white',
+          fontFamily:'system-ui,sans-serif', lineHeight:1,
+          letterSpacing: abbrev.length > 2 ? '-0.5px' : '0',
+        }}>
+          {abbrev}
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ── Low-level helpers (no React) ─────────────────────────────
+function accLoad() {
+  try {
+    const d = JSON.parse(localStorage.getItem(ACC_KEY));
+    if (!Array.isArray(d) || d.length < 3) return JSON.parse(JSON.stringify(ACC_DEFAULTS));
+
+    // ── Migration: fix wrong id/color mismatch ──
+    const fixed = d.map(acc => {
+      // ถ้าชื่อบอกว่าเป็นกรุงไทย แต่ id บอกว่าเป็น SCB → แก้ id และสีให้ถูก
+      if (acc.name && acc.name.includes('กรุงไทย') && acc.id === 'SCB') {
+        return { ...acc, id:'KTB', color:'#009FDA' };
+      }
+      // ถ้า id ถูกแต่ color ผิด → แก้ color ตาม BANK_COLOR map
+      const correctColors = {
+        cash:'#2D7A4A', KBANK:'#00A950', SCB:'#4E2E7F', KTB:'#009FDA',
+        BBL:'#1A3A6B', GSB:'#D8007D', BAY:'#E8B800', TTB:'#002D63',
+      };
+      if (correctColors[acc.id] && !acc.color) {
+        return { ...acc, color: correctColors[acc.id] };
+      }
+      return acc;
+    });
+
+    // บันทึก migration result กลับ
+    const changed = JSON.stringify(fixed) !== JSON.stringify(d);
+    if (changed) {
+      try { localStorage.setItem(ACC_KEY, JSON.stringify(fixed)); } catch {}
+      console.log('[accLoad] Migration applied:', fixed.map(a=>a.id+':'+a.name));
+    }
+    return fixed;
+  } catch { return JSON.parse(JSON.stringify(ACC_DEFAULTS)); }
+}
+
+function accSave(accs) {
+  const clean = accs.map(a => ({
+    ...a, balance: Math.round((+(a.balance)||0) * 100) / 100
+  }));
+  try { localStorage.setItem(ACC_KEY, JSON.stringify(clean)); } catch {}
+  // Broadcast to all useAccounts instances in this tab
+  try { window.dispatchEvent(new CustomEvent(ACC_EVENT, { detail: clean })); } catch {}
+  return clean;
+}
+
+// PRIMARY FUNCTION — updateBalance(id, amount, type)
+// type: 'income' → add, 'expense' → subtract
+// Returns updated accounts array
+function updateAccountBalance(id, amount, type) {
+  const delta = type === 'income' ? +amount : -(+amount);
+  const cur   = accLoad();
+  const next  = cur.map(a =>
+    a.id === id
+      ? { ...a, balance: Math.round((a.balance + delta) * 100) / 100 }
+      : a
+  );
+  return accSave(next);
+}
+
+// ── React hook — subscribes to ACC_EVENT for real-time sync ──
+function useAccounts() {
+  const [accounts, setAccounts] = useState(accLoad);
+
+  // Listen for changes from ANY component in same tab
+  useEffect(() => {
+    const onUpdate = (e) => {
+      if (e.detail) setAccounts(e.detail);
+      else setAccounts(accLoad());
+    };
+    window.addEventListener(ACC_EVENT, onUpdate);
+    // Also listen for cross-tab storage events (optional)
+    const onStorage = (e) => {
+      if (e.key === ACC_KEY) setAccounts(accLoad());
+    };
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener(ACC_EVENT, onUpdate);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, []);
+
+  // ── Write helpers (all broadcast via accSave) ──
+  const save = (accs) => {
+    const clean = accSave(accs);
+    setAccounts(clean);
+  };
+
+  const updateBalance = (id, amount, type) => {
+    const next = updateAccountBalance(id, amount, type);
+    setAccounts(next);
+  };
+
+  const setBalance  = (id, val)   => save(accounts.map(a => a.id===id ? {...a, balance: Math.round(+(val||0)*100)/100} : a));
+  const setName     = (id, name)  => save(accounts.map(a => a.id===id ? {...a, name: name.trim()||a.name} : a));
+  const setEmoji    = (id, emoji) => save(accounts.map(a => a.id===id ? {...a, emoji} : a));
+  const editAccount = (id, patch) => save(accounts.map(a => a.id===id ? {...a,...patch} : a));
+
+  const totalBalance = accounts.reduce((s,a) => s + (a.balance||0), 0);
+
+  return { accounts, save, updateBalance, setBalance, setName, setEmoji, editAccount, totalBalance };
+}
+
+// ── Monthly debt reset hook ─────────────────────────────────
+// Resets debtPayments on the 1st of each month
+function useDebtMonthlyReset({ debtPayments, setDebtPayments }) {
+  useEffect(() => {
+    const now    = new Date();
+    const month  = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    const lastReset = localStorage.getItem(DEBT_RESET_KEY) || '';
+
+    if (lastReset !== month) {
+      // New month — archive paid amounts then reset
+      try {
+        const archive = JSON.parse(localStorage.getItem('calcash_debt_archive') || '[]');
+        archive.unshift({
+          month: lastReset || month,
+          payments: { ...debtPayments },
+          archivedAt: now.toISOString(),
+        });
+        localStorage.setItem('calcash_debt_archive', JSON.stringify(archive.slice(0, 24)));
+      } catch(e) {}
+
+      // Only reset if we actually had a previous month recorded
+      if (lastReset && lastReset !== month) {
+        setDebtPayments({});
+        console.log('[DebtReset] Monthly reset done for:', month);
+      }
+      localStorage.setItem(DEBT_RESET_KEY, month);
+    }
+  }, []); // run once on mount
+}
+
+// Lucide icons as inline SVG components
+const Icon = ({ d, size=19, color='currentColor', strokeWidth=2 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    {Array.isArray(d) ? d.map((p,i)=><path key={i} d={p}/>) : <path d={d}/>}
+  </svg>
+);
+
+const Icons = {
+  Home:       ({size,color})=><Icon size={size} color={color} d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22V12h6v10"/>,
+  Wallet:     ({size,color})=><Icon size={size} color={color} d={["M21 12V7H5a2 2 0 0 1 0-4h14v4","M3 5v14a2 2 0 0 0 2 2h16v-5","M18 12a2 2 0 0 0 0 4h4v-4z"]}/>,
+  CreditCard: ({size,color})=><Icon size={size} color={color} d={["M22 4H2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h20a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z","M1 10h22"]}/>,
+  Utensils:   ({size,color})=><Icon size={size} color={color} d={["M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2","M7 2v20","M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"]}/>,
+  Settings:   ({size,color})=><Icon size={size} color={color} d={["M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z","M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"]}/>,
+  Lock:       ({size,color})=><Icon size={size} color={color} d={["M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z","M7 11V7a5 5 0 0 1 10 0v4"]}/>,
+  Shield:     ({size,color})=><Icon size={size} color={color} d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z M9 12l2 2 4-4"/>,
+  User:       ({size,color})=><Icon size={size} color={color} d={["M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2","M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"]}/>,
+  Key:        ({size,color})=><Icon size={size} color={color} d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>,
+  Trash2:     ({size,color})=><Icon size={size} color={color} d={["M3 6h18","M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6","M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2","M10 11v6","M14 11v6"]}/>,
+  Copy:       ({size,color})=><Icon size={size} color={color} d={["M20 9H11a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2z","M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 0 2 2v1"]}/>,
+  Flame:      ({size,color})=><Icon size={size} color={color} d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>,
+  AlertTri:   ({size,color})=><Icon size={size} color={color} d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z M12 9v4 M12 17h.01"/>,
+  CheckCircle:({size,color})=><Icon size={size} color={color} d="M22 11.08V12a10 10 0 1 1-5.93-9.14 M22 4L12 14.01l-3-3"/>,
+  XCircle:    ({size,color})=><Icon size={size} color={color} d={["M22 12A10 10 0 1 1 2 12a10 10 0 0 1 20 0z","M15 9l-6 6","M9 9l6 6"]}/>,
+  Clock:      ({size,color})=><Icon size={size} color={color} d={["M22 12A10 10 0 1 1 2 12a10 10 0 0 1 20 0z","M12 6v6l4 2"]}/>,
+  Landmark:   ({size,color})=><Icon size={size} color={color} d={["M3 22h18","M6 18V9","M10 18V9","M14 18V9","M18 18V9","M12 2L2 7h20L12 2z"]}/>,
+};
+
+// 
+// CONSTANTS
+// 
+const ADMIN_PIN        = '140840';
+const DEFAULT_USER_PIN = '000000';
+const BIOMETRIC_KEY    = 'calcash_biometric_enabled';
+const BIOMETRIC_CRED   = 'calcash_biometric_credId';
+
+// ── WebAuthn / Biometric helpers ──────────────────────────────
+// รองรับ Face ID, Touch ID, Fingerprint ผ่าน Web Authentication API
+
+function isBiometricSupported() {
+  return !!(window.PublicKeyCredential &&
+    typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function');
+}
+
+async function checkBiometricAvailable() {
+  try {
+    return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+  } catch { return false; }
+}
+
+// Register biometric (เรียกครั้งแรกเมื่อผู้ใช้เปิดใช้งาน)
+async function registerBiometric(userName) {
+  try {
+    const challenge = new Uint8Array(32);
+    crypto.getRandomValues(challenge);
+    const userId = new TextEncoder().encode(userName || 'calcash_user');
+
+    const cred = await navigator.credentials.create({ publicKey: {
+      challenge,
+      rp: { name: 'Cal & Cash', id: location.hostname || 'localhost' },
+      user: { id: userId, name: userName || 'user', displayName: 'Cal & Cash User' },
+      pubKeyCredParams: [
+        { alg: -7,  type: 'public-key' },   // ES256
+        { alg: -257,type: 'public-key' },   // RS256
+      ],
+      authenticatorSelection: {
+        authenticatorAttachment: 'platform',   // Face ID / Touch ID
+        userVerification: 'preferred',
+      },
+      timeout: 60000,
+      attestation: 'direct',
+    }});
+    if (!cred) return false;
+    localStorage.setItem(BIOMETRIC_CRED, JSON.stringify({
+      id: Array.from(new Uint8Array(cred.id)),
+      type: cred.type,
+    }));
+    return true;
+  } catch(e) { console.warn('Biometric register failed:', e); return false; }
+}
+
+// Authenticate with biometric
+async function authenticateBiometric() {
+  try {
+    const credStr = localStorage.getItem(BIOMETRIC_CRED);
+    if (!credStr) return false;
+    const cred = JSON.parse(credStr);
+    const challenge = new Uint8Array(32);
+    crypto.getRandomValues(challenge);
+    const assertion = await navigator.credentials.get({ publicKey: {
+      challenge,
+      allowCredentials: [{ id: new Uint8Array(cred.id), type: 'public-key' }],
+      userVerification: 'preferred',
+      timeout: 60000,
+    }});
+    return !!assertion;
+  } catch(e) { console.warn('Biometric auth failed:', e); return false; }
+}
+
+function isBiometricEnabled() {
+  try { return JSON.parse(localStorage.getItem(BIOMETRIC_KEY) || 'false'); } catch { return false; }
+}
+
+// ── PIN login screen ──────────────────────────────────────────
+function PinLoginScreen({ onSuccess }) {
+  const [pin, setPin] = useState('');
+  const [error, setError] = useState('');
+  const [bioTrying, setBioTrying] = useState(false);
+
+  const handlePinSubmit = () => {
+    if (pin === ADMIN_PIN) { onSuccess('admin'); }
+    else if (pin === DEFAULT_USER_PIN) { onSuccess('user'); }
+    else { setError('PIN ไม่ถูกต้อง'); setPin(''); }
+  };
+
+  useEffect(() => {
+    if (isBiometricEnabled()) {
+      setBioTrying(true);
+      authenticateBiometric().then(success => {
+        setBioTrying(false);
+        if (success) onSuccess('user');
+      });
+    }
+  }, []);
+
+  return (
+    <div style={{ minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',
+      background:'linear-gradient(135deg,#2B5278,#1C3D5A)',padding:20 }}>
+      <div style={{ background:'#fff',borderRadius:24,padding:32,maxWidth:320,width:'100%',
+        boxShadow:'0 20px 60px rgba(0,0,0,0.3)' }}>
+        <h1 style={{ fontSize:24,fontWeight:900,color:'#1C2C3A',margin:'0 0 8px',textAlign:'center' }}>
+          Cal & Cash
+        </h1>
+        <p style={{ fontSize:12,color:'#8A9BA8',textAlign:'center',margin:'0 0 24px' }}>
+          กรุณากรอก PIN เพื่อเข้าสู่ระบบ
+        </p>
+        {error && <div style={{ background:'#F5EBEB',color:'#B91C1C',padding:12,borderRadius:12,
+          fontSize:12,fontWeight:600,marginBottom:16,textAlign:'center' }}>{error}</div>}
+        <div style={{ display:'flex',gap:8,marginBottom:20 }}>
+          {[0,1,2,3,4,5].map(i=>(
+            <input key={i} type="password" maxLength="1" value={pin[i]||''}
+              onChange={e=>{ const newPin = pin.split(''); newPin[i]=e.target.value; setPin(newPin.join('').slice(0,6)); }}
+              style={{ flex:1,padding:12,fontSize:20,fontWeight:900,textAlign:'center',
+                border:'2px solid #E2D5C3',borderRadius:12,outline:'none' }}/>
+          ))}
+        </div>
+        <button onClick={handlePinSubmit} style={{ width:'100%',padding:12,background:'linear-gradient(145deg,#2B5278,#1C3D5A)',
+          color:'#fff',fontWeight:800,border:'none',borderRadius:12,cursor:'pointer',marginBottom:12 }}>
+          เข้าสู่ระบบ
+        </button>
+        {isBiometricEnabled() && (
+          <button onClick={()=>{ setBioTrying(true); authenticateBiometric().then(s=>{ setBioTrying(false); if(s)onSuccess('user'); }); }}
+            style={{ width:'100%',padding:12,background:'#F8F8F8',color:'#8A9BA8',fontWeight:700,
+              border:'1px solid #E8E8E8',borderRadius:12,cursor:'pointer' }}>
+            {bioTrying ? 'กำลังตรวจสอบ...' : '🔐 ใช้ Biometric'}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Biometric login screen ────────────────────────────────────
+function BiometricLoginScreen({ onSuccess, onFallback }) {
+  const [status, setStatus] = useState('กำลังตรวจสอบ...');
+
+  useEffect(() => {
+    authenticateBiometric().then(success => {
+      if (success) {
+        onSuccess('user');
+      } else {
+        setStatus('ไม่สำเร็จ');
+        setTimeout(onFallback, 1500);
+      }
+    });
+  }, []);
+
+  return (
+    <div style={{ minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',
+      background:'linear-gradient(135deg,#2B5278,#1C3D5A)',padding:20 }}>
+      <div style={{ background:'#fff',borderRadius:24,padding:32,maxWidth:320,width:'100%',
+        boxShadow:'0 20px 60px rgba(0,0,0,0.3)',textAlign:'center' }}>
+        <div style={{ fontSize:48,marginBottom:16 }}>🔐</div>
+        <h2 style={{ fontSize:18,fontWeight:900,color:'#1C2C3A',margin:'0 0 8px' }}>
+          ยืนยันตัวตน
+        </h2>
+        <p style={{ fontSize:13,color:'#8A9BA8',margin:'0 0 16px' }}>
+          {status}
+        </p>
+        <div style={{ width:40,height:40,borderRadius:'50%',border:'3px solid #2B5278',
+          borderTopColor:'transparent',margin:'0 auto',animation:'spin 1s linear infinite' }}>
+          <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── First setup screen ────────────────────────────────────────
+function FirstSetup({ onDone }) {
+  const [name, setName] = useState('');
+  const [step, setStep] = useState(1);
+
+  const handleNext = () => {
+    if (!name.trim()) return;
+    const user = {
+      name: name.trim(),
+      img: null,
+      targetCal: 2000,
+      ht: 170,
+      wt: 70,
+      age: 25,
+      sex: 'male',
+      email: '',
+    };
+    onDone(user);
+  };
+
+  return (
+    <div style={{ minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',
+      background:'linear-gradient(135deg,#F0E8DC,#EAE0D4)',padding:20 }}>
+      <div style={{ background:'#fff',borderRadius:24,padding:32,maxWidth:380,width:'100%',
+        boxShadow:'0 20px 60px rgba(0,0,0,0.1)' }}>
+        <h1 style={{ fontSize:24,fontWeight:900,color:'#1C2C3A',margin:'0 0 8px',textAlign:'center' }}>
+          ยินดีต้อนรับ 👋
+        </h1>
+        <p style={{ fontSize:13,color:'#8A9BA8',textAlign:'center',margin:'0 0 24px' }}>
+          เรามาเริ่มต้นกันเลยค่ะ
+        </p>
+        <div style={{ marginBottom:20 }}>
+          <label style={{ fontSize:12,fontWeight:700,color:'#6B7E8D',display:'block',marginBottom:8 }}>
+            ชื่อของคุณ
+          </label>
+          <input type="text" value={name} onChange={e=>setName(e.target.value)}
+            placeholder="เช่น Alice"
+            style={{ width:'100%',padding:12,border:'1px solid #E2D5C3',borderRadius:12,
+              fontSize:14,outline:'none',boxSizing:'border-box' }}/>
+        </div>
+        <button onClick={handleNext} style={{ width:'100%',padding:12,background:'linear-gradient(145deg,#2B5278,#1C3D5A)',
+          color:'#fff',fontWeight:800,border:'none',borderRadius:12,cursor:'pointer' }}>
+          ถัดไป
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Change PIN screen ────────────────────────────────────────
+function ChangePinScreen({ role, onDone, onBack }) {
+  const [oldPin, setOldPin] = useState('');
+  const [newPin, setNewPin] = useState('');
+  const [error, setError] = useState('');
+
+  const handleChange = () => {
+    const expected = role === 'admin' ? ADMIN_PIN : DEFAULT_USER_PIN;
+    if (oldPin !== expected) { setError('PIN เดิมไม่ถูกต้อง'); return; }
+    if (newPin.length < 6) { setError('PIN ใหม่ต้องมี 6 หลัก'); return; }
+    // In real app, save newPin to backend
+    onDone();
+  };
+
+  return (
+    <div style={{ minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',
+      background:'linear-gradient(135deg,#2B5278,#1C3D5A)',padding:20 }}>
+      <div style={{ background:'#fff',borderRadius:24,padding:32,maxWidth:320,width:'100%',
+        boxShadow:'0 20px 60px rgba(0,0,0,0.3)' }}>
+        <h2 style={{ fontSize:20,fontWeight:900,color:'#1C2C3A',margin:'0 0 16px',textAlign:'center' }}>
+          เปลี่ยน PIN
+        </h2>
+        {error && <div style={{ background:'#F5EBEB',color:'#B91C1C',padding:12,borderRadius:12,
+          fontSize:12,fontWeight:600,marginBottom:16,textAlign:'center' }}>{error}</div>}
+        <div style={{ marginBottom:16 }}>
+          <label style={{ fontSize:11,fontWeight:700,color:'#8A9BA8',display:'block',marginBottom:6 }}>
+            PIN เดิม
+          </label>
+          <input type="password" value={oldPin} onChange={e=>setOldPin(e.target.value.slice(0,6))}
+            style={{ width:'100%',padding:10,border:'1px solid #E2D5C3',borderRadius:10,
+              fontSize:14,outline:'none',boxSizing:'border-box' }}/>
+        </div>
+        <div style={{ marginBottom:20 }}>
+          <label style={{ fontSize:11,fontWeight:700,color:'#8A9BA8',display:'block',marginBottom:6 }}>
+            PIN ใหม่
+          </label>
+          <input type="password" value={newPin} onChange={e=>setNewPin(e.target.value.slice(0,6))}
+            style={{ width:'100%',padding:10,border:'1px solid #E2D5C3',borderRadius:10,
+              fontSize:14,outline:'none',boxSizing:'border-box' }}/>
+        </div>
+        <button onClick={handleChange} style={{ width:'100%',padding:10,background:'linear-gradient(145deg,#2B5278,#1C3D5A)',
+          color:'#fff',fontWeight:800,border:'none',borderRadius:10,cursor:'pointer',marginBottom:8,fontSize:13 }}>
+          บันทึก
+        </button>
+        <button onClick={onBack} style={{ width:'100%',padding:10,background:'#F8F8F8',color:'#8A9BA8',
+          fontWeight:700,border:'1px solid #E8E8E8',borderRadius:10,cursor:'pointer',fontSize:13 }}>
+          ยกเลิก
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Profile setup screen ──────────────────────────────────────
+function ProfileSetupScreen({ sbUser, onDone }) {
+  const [nickname, setNickname] = useState('');
+  const [height, setHeight] = useState('170');
+  const [weight, setWeight] = useState('70');
+  const [age, setAge] = useState('25');
+  const [gender, setGender] = useState('ชาย');
+
+  const handleDone = () => {
+    if (!nickname.trim()) return;
+    const bmr = gender === 'ชาย'
+      ? 66+13.7*(+weight)+5*(+height)-6.8*(+age)
+      : 655+9.6*(+weight)+1.8*(+height)-4.7*(+age);
+    const user = {
+      name: nickname.trim(),
+      img: null,
+      targetCal: Math.round(bmr*1.2),
+      ht: +height,
+      wt: +weight,
+      age: +age,
+      sex: gender === 'ชาย' ? 'male' : 'female',
+      email: sbUser?.email || '',
+    };
+    onDone(user);
+  };
+
+  return (
+    <div style={{ minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',
+      background:'linear-gradient(135deg,#F0E8DC,#EAE0D4)',padding:20 }}>
+      <div style={{ background:'#fff',borderRadius:24,padding:32,maxWidth:400,width:'100%',
+        boxShadow:'0 20px 60px rgba(0,0,0,0.1)' }}>
+        <h1 style={{ fontSize:22,fontWeight:900,color:'#1C2C3A',margin:'0 0 16px',textAlign:'center' }}>
+          ตั้งค่าโปรไฟล์
+        </h1>
+        <div style={{ display:'flex',flexDirection:'column',gap:16 }}>
+          <div>
+            <label style={{ fontSize:11,fontWeight:700,color:'#8A9BA8',display:'block',marginBottom:6 }}>
+              ชื่อเล่น
+            </label>
+            <input type="text" value={nickname} onChange={e=>setNickname(e.target.value)}
+              placeholder="เช่น Alice"
+              style={{ width:'100%',padding:10,border:'1px solid #E2D5C3',borderRadius:10,
+                fontSize:13,outline:'none',boxSizing:'border-box' }}/>
+          </div>
+          <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:12 }}>
+            <div>
+              <label style={{ fontSize:11,fontWeight:700,color:'#8A9BA8',display:'block',marginBottom:6 }}>
+                ส่วนสูง (cm)
+              </label>
+              <input type="number" value={height} onChange={e=>setHeight(e.target.value)}
+                style={{ width:'100%',padding:10,border:'1px solid #E2D5C3',borderRadius:10,
+                  fontSize:13,outline:'none',boxSizing:'border-box' }}/>
+            </div>
+            <div>
+              <label style={{ fontSize:11,fontWeight:700,color:'#8A9BA8',display:'block',marginBottom:6 }}>
+                น้ำหนัก (kg)
+              </label>
+              <input type="number" value={weight} onChange={e=>setWeight(e.target.value)}
+                style={{ width:'100%',padding:10,border:'1px solid #E2D5C3',borderRadius:10,
+                  fontSize:13,outline:'none',boxSizing:'border-box' }}/>
+            </div>
+          </div>
+          <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:12 }}>
+            <div>
+              <label style={{ fontSize:11,fontWeight:700,color:'#8A9BA8',display:'block',marginBottom:6 }}>
+                อายุ
+              </label>
+              <input type="number" value={age} onChange={e=>setAge(e.target.value)}
+                style={{ width:'100%',padding:10,border:'1px solid #E2D5C3',borderRadius:10,
+                  fontSize:13,outline:'none',boxSizing:'border-box' }}/>
+            </div>
+            <div>
+              <label style={{ fontSize:11,fontWeight:700,color:'#8A9BA8',display:'block',marginBottom:6 }}>
+                เพศ
+              </label>
+              <select value={gender} onChange={e=>setGender(e.target.value)}
+                style={{ width:'100%',padding:10,border:'1px solid #E2D5C3',borderRadius:10,
+                  fontSize:13,outline:'none',boxSizing:'border-box' }}>
+                <option>ชาย</option>
+                <option>หญิง</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <button onClick={handleDone} style={{ width:'100%',padding:12,background:'linear-gradient(145deg,#2B5278,#1C3D5A)',
+          color:'#fff',fontWeight:800,border:'none',borderRadius:12,cursor:'pointer',marginTop:20,fontSize:13 }}>
+          เสร็จสิ้น
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Supabase Auth Screen ──────────────────────────────────────
+function SupabaseAuthScreen({ onSuccess }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleAuth = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      if (isSignUp) {
+        const { user, error } = await sbSignUp(email, password);
+        if (error) { setError(error.message); }
+        else { onSuccess(user, true); }
+      } else {
+        const { user, error } = await sbSignIn(email, password);
+        if (error) { setError(error.message); }
+        else { onSuccess(user, false); }
+      }
+    } catch(e) { setError(e.message); }
+    setLoading(false);
+  };
+
+  return (
+    <div style={{ minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',
+      background:'linear-gradient(135deg,#2B5278,#1C3D5A)',padding:20 }}>
+      <div style={{ background:'#fff',borderRadius:24,padding:32,maxWidth:360,width:'100%',
+        boxShadow:'0 20px 60px rgba(0,0,0,0.3)' }}>
+        <h1 style={{ fontSize:22,fontWeight:900,color:'#1C2C3A',margin:'0 0 8px',textAlign:'center' }}>
+          Cal & Cash
+        </h1>
+        <p style={{ fontSize:12,color:'#8A9BA8',textAlign:'center',margin:'0 0 24px' }}>
+          {isSignUp ? 'สร้างบัญชีใหม่' : 'เข้าสู่ระบบ'}
+        </p>
+        {error && <div style={{ background:'#F5EBEB',color:'#B91C1C',padding:12,borderRadius:12,
+          fontSize:12,fontWeight:600,marginBottom:16,textAlign:'center' }}>{error}</div>}
+        <div style={{ display:'flex',flexDirection:'column',gap:12,marginBottom:20 }}>
+          <input type="email" value={email} onChange={e=>setEmail(e.target.value)}
+            placeholder="อีเมล"
+            style={{ width:'100%',padding:12,border:'1px solid #E2D5C3',borderRadius:12,
+              fontSize:13,outline:'none',boxSizing:'border-box' }}/>
+          <input type="password" value={password} onChange={e=>setPassword(e.target.value)}
+            placeholder="รหัสผ่าน"
+            style={{ width:'100%',padding:12,border:'1px solid #E2D5C3',borderRadius:12,
+              fontSize:13,outline:'none',boxSizing:'border-box' }}/>
+        </div>
+        <button onClick={handleAuth} disabled={loading} style={{ width:'100%',padding:12,
+          background:'linear-gradient(145deg,#2B5278,#1C3D5A)',color:'#fff',fontWeight:800,
+          border:'none',borderRadius:12,cursor:loading?'not-allowed':'pointer',opacity:loading?0.6:1,
+          marginBottom:12,fontSize:13 }}>
+          {loading ? 'กำลังดำเนินการ...' : (isSignUp ? 'สร้างบัญชี' : 'เข้าสู่ระบบ')}
+        </button>
+        <button onClick={()=>setIsSignUp(!isSignUp)} style={{ width:'100%',padding:12,
+          background:'#F8F8F8',color:'#8A9BA8',fontWeight:700,border:'1px solid #E8E8E8',
+          borderRadius:12,cursor:'pointer',fontSize:13 }}>
+          {isSignUp ? 'มีบัญชีแล้ว? เข้าสู่ระบบ' : 'ยังไม่มีบัญชี? สร้างใหม่'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Admin Overlay ────────────────────────────────────────────
+function AdminOverlay({ onBack, onSuccess }) {
+  const [pin, setPin] = useState('');
+  const [error, setError] = useState('');
+
+  const handleSubmit = () => {
+    if (pin === ADMIN_PIN) { onSuccess(); }
+    else { setError('PIN Admin ไม่ถูกต้อง'); setPin(''); }
+  };
+
+  return (
+    <div onClick={onBack} style={{ position:'fixed',inset:0,zIndex:9000,
+      background:'rgba(0,0,0,0.5)',backdropFilter:'blur(4px)',
+      display:'flex',alignItems:'center',justifyContent:'center',padding:20 }}>
+      <div onClick={e=>e.stopPropagation()} style={{ background:'#fff',borderRadius:24,
+        padding:32,maxWidth:320,width:'100%',boxShadow:'0 20px 60px rgba(0,0,0,0.3)' }}>
+        <h2 style={{ fontSize:18,fontWeight:900,color:'#1C2C3A',margin:'0 0 16px',textAlign:'center' }}>
+          ยืนยัน Admin
+        </h2>
+        {error && <div style={{ background:'#F5EBEB',color:'#B91C1C',padding:12,borderRadius:12,
+          fontSize:12,fontWeight:600,marginBottom:16,textAlign:'center' }}>{error}</div>}
+        <div style={{ display:'flex',gap:8,marginBottom:20 }}>
+          {[0,1,2,3,4,5].map(i=>(
+            <input key={i} type="password" maxLength="1" value={pin[i]||''}
+              onChange={e=>{ const newPin = pin.split(''); newPin[i]=e.target.value; setPin(newPin.join('').slice(0,6)); }}
+              style={{ flex:1,padding:12,fontSize:20,fontWeight:900,textAlign:'center',
+                border:'2px solid #E2D5C3',borderRadius:12,outline:'none' }}/>
+          ))}
+        </div>
+        <button onClick={handleSubmit} style={{ width:'100%',padding:12,background:'linear-gradient(145deg,#2B5278,#1C3D5A)',
+          color:'#fff',fontWeight:800,border:'none',borderRadius:12,cursor:'pointer',marginBottom:8 }}>
+          ยืนยัน
+        </button>
+        <button onClick={onBack} style={{ width:'100%',padding:12,background:'#F8F8F8',color:'#8A9BA8',
+          fontWeight:700,border:'1px solid #E8E8E8',borderRadius:12,cursor:'pointer' }}>
+          ยกเลิก
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Emergency Fund Card ──────────────────────────────────────
+function EmergencyFundCard({ emergencyFund, setEmergencyFund }) {
+  const [editMode, setEditMode] = useState(false);
+  const [targetInput, setTargetInput] = useState(String(emergencyFund.target || 50000));
+
+  const pct = emergencyFund.target > 0 ? Math.round(emergencyFund.amount / emergencyFund.target * 100) : 0;
+
+  const handleSaveTarget = () => {
+    const v = +targetInput;
+    if (v > 0) {
+      setEmergencyFund({...emergencyFund, target: v});
+      setEditMode(false);
+    }
+  };
+
+  return (
+    <Card className="p-5" style={{ overflow:'hidden',position:'relative' }}>
+      <div style={{ position:'absolute',right:-8,top:-8,fontSize:72,opacity:.05,pointerEvents:'none' }}>🏦</div>
+      <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14 }}>
+        <div style={{ display:'flex',alignItems:'center',gap:10 }}>
+          <div style={{ width:38,height:38,borderRadius:12,flexShrink:0,
+            background:'linear-gradient(145deg,#10B981,#059669)',
+            boxShadow:'var(--shadow-btn)',
+            display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:18 }}>
+            🏦
+          </div>
+          <div>
+            <p style={{ fontSize:10,fontWeight:700,color:'#8A9BA8',textTransform:'uppercase',letterSpacing:1.5,margin:0 }}>
+              Emergency Fund
+            </p>
+            <p style={{ fontSize:13,fontWeight:900,color:'#1C2C3A',margin:0 }}>กองทุนฉุกเฉิน</p>
+          </div>
+        </div>
+        <button onClick={()=>{ setTargetInput(String(emergencyFund.target)); setEditMode(true); }}
+          style={{ fontSize:11,fontWeight:700,padding:'6px 12px',borderRadius:12,
+            background:'var(--clay-inset)',boxShadow:'var(--shadow-in)',
+            border:'1px solid var(--clay-border)',color:'#6B7E8D',cursor:'pointer' }}>
+          ✎ แก้ไข
+        </button>
+      </div>
+
+      {editMode && (
+        <div style={{ display:'flex',gap:8,marginBottom:14,alignItems:'center' }}>
+          <input type="number" value={targetInput} onChange={e=>setTargetInput(e.target.value)}
+            style={{ flex:1,padding:10,border:'1px solid #E2D5C3',borderRadius:12,
+              fontSize:14,outline:'none',boxSizing:'border-box' }}/>
+          <button onClick={handleSaveTarget} className="clay-btn-navy" style={{ padding:'10px 16px',width:'auto',flexShrink:0,fontSize:12 }}>
+            บันทึก
+          </button>
+          <button onClick={()=>setEditMode(false)}
+            style={{ padding:'10px 12px',borderRadius:12,background:'var(--clay-inset)',
+              boxShadow:'var(--shadow-in)',border:'1px solid var(--clay-border)',
+              color:'#8A9BA8',cursor:'pointer',fontWeight:700,flexShrink:0 }}>✕</button>
+        </div>
+      )}
+
+      <div style={{ display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginBottom:14 }}>
+        <div style={{ padding:'10px 8px',borderRadius:14,textAlign:'center',
+          background:'linear-gradient(145deg,#F0FDF4,#E8F5EE)',boxShadow:'var(--shadow-out)',
+          border:'1px solid #C8E6C9' }}>
+          <p style={{ fontSize:9,fontWeight:700,color:'#059669',textTransform:'uppercase',margin:'0 0 3px',letterSpacing:1 }}>
+            เป้าหมาย
+          </p>
+          <p style={{ fontSize:15,fontWeight:900,color:'#059669',margin:0 }}>฿{fmt(emergencyFund.target)}</p>
+        </div>
+        <div style={{ padding:'10px 8px',borderRadius:14,textAlign:'center',
+          background:'linear-gradient(145deg,#FFF7ED,#FFE8CC)',boxShadow:'var(--shadow-out)',
+          border:'1px solid #FECACA' }}>
+          <p style={{ fontSize:9,fontWeight:700,color:'#EA580C',textTransform:'uppercase',margin:'0 0 3px',letterSpacing:1 }}>
+            เก็บได้
+          </p>
+          <p style={{ fontSize:15,fontWeight:900,color:'#EA580C',margin:0 }}>฿{fmt(emergencyFund.amount)}</p>
+        </div>
+        <div style={{ padding:'10px 8px',borderRadius:14,textAlign:'center',
+          background:pct>=100?'linear-gradient(145deg,#F0FDF4,#E8F5EE)':'linear-gradient(145deg,#EFF6FF,#E0EEFF)',
+          boxShadow:'var(--shadow-out)',
+          border:`1px solid ${pct>=100?'#C8E6C9':'#BFDBFE'}` }}>
+          <p style={{ fontSize:9,fontWeight:700,color:pct>=100?'#059669':'#3B82F6',textTransform:'uppercase',margin:'0 0 3px',letterSpacing:1 }}>
+            ความคืบหน้า
+          </p>
+          <p style={{ fontSize:15,fontWeight:900,color:pct>=100?'#059669':'#3B82F6',margin:0 }}>{pct}%</p>
+        </div>
+      </div>
+
+      <Progress pct={pct} color={pct>=100?'#059669':'#3B82F6'} height={12}/>
+    </Card>
+  );
+}
+
+// ── Dashboard Screen ─────────────────────────────────────────
+function DashboardScreen({ user, setUser, txns, setTxns, foods, setFoods, loans, debtPayments, workouts, toast, accountsMgr }) {
+  const [timeStr, setTimeStr] = useState('');
+  const [dateStr, setDateStr] = useState('');
+  const [emergencyFund, setEmergencyFund] = useState(()=>db.get().emergencyFund||{amount:0,locked:false,target:50000});
+
+  useEffect(() => {
+    const update = () => {
+      const now = new Date();
+      setTimeStr(now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}));
+      setDateStr(now.toLocaleDateString('th-TH',{weekday:'long',year:'numeric',month:'long',day:'numeric'}));
+    };
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const myApp = loans.find(l=>l.userId===user.name);
+  const totalDebt = myApp ? myApp.amount + Math.round(myApp.amount*20/100) : 0;
+  const paidAmount = (debtPayments[myApp?.id] || 0);
+  const totalPaid = paidAmount;
+  const debtPct    = totalDebt > 0 ? Math.round(paidAmount/totalDebt*100) : 0;
+  const localDebts = (() => { try { return JSON.parse(localStorage.getItem('calcash_localDebts')||'[]'); } catch { return []; } })();
+  const localDebtRemaining = localDebts.reduce((sum, d) => sum + Math.max(0, (d.total || 0) - (d.paid || 0)), 0);
+  const systemLoanRemaining = Math.max(0, totalDebt - paidAmount);
+  const remaining  = localDebtRemaining + systemLoanRemaining;
+  const totalIn    = txns.filter(t=>t.type==='income').reduce((a,t)=>a+t.amount,0);
+  const totalOut   = txns.filter(t=>t.type==='expense').reduce((a,t)=>a+t.amount,0);
+  const balance    = totalIn - totalOut;
+  
+  // FIX #3: Calculate net calories (food consumed - calories burned from workouts)
+  const totalFoodCal = foods.reduce((a,f)=>a+f.cal,0);
+  const totalBurnedCal = workouts.reduce((a,w)=>a+w.cal,0);
+  const totalCal = Math.max(0, totalFoodCal - totalBurnedCal);
+  
+  const targetCal  = user.targetCal || 2000;
+  const calPct     = clamp(Math.round(totalCal/targetCal*100),0,100);
+
+  const risk = totalIn === 0 ? 0 : 
+  totalOut > totalIn ? 80 : 
+  debtPct < 30 && totalDebt > 0 ? 55 : 
+  totalOut / totalIn > 0.7 ? 45 : 20;
+  const riskLabel = risk >= 70 ? 'สูงมาก' : risk >= 50 ? 'สูง' : risk >= 35 ? 'ปานกลาง' : 'ต่ำ';
+  const riskColor = risk >= 70 ? '#DC2626' : risk >= 50 ? '#F97316' : risk >= 35 ? '#EAB308' : '#059669';
+
+  const lineData = txns.slice(0,12).reverse().map((t,i) => ({ name:i+1, value:t.amount, type:t.type }));
+  const pieData = [{name:'รายรับ',value:totalIn},{name:'รายจ่าย',value:totalOut}].filter(d=>d.value>0);
+  const PIE_COLORS = ['#10B981','#EF4444'];
+
+  return (
+    <div className="space-y-4">
+      {(()=>{
+        const _dow = new Date().getDay();
+        const _th  = DAY_THEMES[_dow];
+        return (
+          <div style={{
+            margin:'-8px -16px 0', padding:'24px 20px 20px',
+            background:_th.grad,
+            boxShadow:`0 8px 32px ${_th.glow}`,
+            color:'#fff', position:'relative', overflow:'hidden',
+            transition:'background 1s ease',
+          }}>
+            <div style={{ position:'absolute',top:-50,right:-40,width:160,height:160,borderRadius:'50%',
+              background:'rgba(255,255,255,0.07)',pointerEvents:'none' }}/>
+            <div style={{ position:'absolute',bottom:-30,left:-20,width:110,height:110,borderRadius:'50%',
+              background:'rgba(255,255,255,0.05)',pointerEvents:'none' }}/>
+            <div style={{
+              position:'absolute', top:'45%', right:-20,
+              transform:'translateY(-50%)',
+              fontSize:160, lineHeight:1,
+              opacity:0.07,
+              pointerEvents:'none',
+              userSelect:'none',
+              filter:'blur(3px)',
+              zIndex:0,
+            }}>
+              {_th.emoji}
+            </div>
+
+            <div style={{ display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:20 }}>
+              <div>
+                <p style={{ fontSize:11,opacity:.65,margin:0 }}>สวัสดีค่ะ คุณ</p>
+                <p style={{ fontSize:20,fontWeight:900,margin:'2px 0 4px',letterSpacing:'-0.5px' }}>
+                  {user?.name}
+                </p>
+                <div style={{ display:'inline-flex',alignItems:'center',gap:6,
+                  background:'rgba(255,255,255,0.12)',borderRadius:20,
+                  padding:'4px 12px' }}>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                    stroke="rgba(255,255,255,0.8)" strokeWidth="2.5"
+                    strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                  <span style={{ fontSize:13,fontWeight:800,letterSpacing:0.5,
+                    fontVariantNumeric:'tabular-nums' }}>
+                    {timeStr}
+                  </span>
+                </div>
+                <p style={{ fontSize:10,opacity:.55,margin:'4px 0 0',letterSpacing:0.2 }}>
+                  {dateStr}
+                </p>
+              </div>
+              <div style={{ width:44,height:44,borderRadius:22,overflow:'hidden',
+                border:'2px solid rgba(255,255,255,0.4)',flexShrink:0 }}>
+                {user?.img
+                  ? <img src={user?.img} style={{ width:'100%',height:'100%',objectFit:'cover' }} alt="avatar"/>
+                  : <div style={{ width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',
+                      background:'rgba(255,255,255,0.18)' }}>
+                      <Icons.User size={20} color="white"/>
+                    </div>}
+              </div>
+            </div>
+
+            <div style={{ marginBottom:18 }}>
+              <p style={{ fontSize:11,opacity:.6,margin:'0 0 4px',textTransform:'uppercase',letterSpacing:1 }}>
+                ยอดสุทธิ
+              </p>
+              <p style={{ fontSize:32,fontWeight:900,margin:0,letterSpacing:'-1px' }}>
+                {balance>=0?'+':''}{fmtM(balance)}
+              </p>
+              <p style={{ fontSize:10,fontWeight:700,opacity:.7,marginTop:2 }}>บาท</p>
+            </div>
+
+            <div style={{ display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,color:'#fff' }}>
+              <div><p style={{ fontSize:9,opacity:.5,textTransform:'uppercase' }}>รายรับ</p><p style={{ fontSize:15,fontWeight:900,color:'#BBF7D0' }}>+{fmtM(totalIn)}</p></div>
+              <div style={{ textAlign:'center' }}><p style={{ fontSize:9,opacity:.5,textTransform:'uppercase' }}>สุทธิ</p><p style={{ fontSize:15,fontWeight:900 }}>{balance>=0?'+':''}{fmtM(balance)}</p></div>
+              <div style={{ textAlign:'right' }}><p style={{ fontSize:9,opacity:.5,textTransform:'uppercase' }}>รายจ่าย</p><p style={{ fontSize:15,fontWeight:900,color:'#FECACA' }}>-{fmtM(totalOut)}</p></div>
+            </div>
+          </div>
+        );
+      })()}
+
+      <div style={{ display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:12 }}>
+        <div onClick={()=>{}}
+          style={{ background:'var(--clay-card)',borderRadius:24,padding:'18px 20px',cursor:'pointer',
+            boxShadow:'var(--shadow-out)',border:'1px solid var(--clay-border)', transition:'all .2s' }}
+          onMouseDown={e=>e.currentTarget.style.transform='scale(0.96)'}
+          onMouseUp={e=>e.currentTarget.style.transform='scale(1)'}>
+          <div style={{ width:42,height:42,borderRadius:14,background:'linear-gradient(145deg, #EAF0F6, #DDE8F0)',
+            display:'flex',alignItems:'center',justifyContent:'center',marginBottom:12,
+            boxShadow:'0 4px 10px rgba(74,127,165,0.15)', border:'1px solid rgba(255,255,255,0.4)' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4A7FA5"
+              strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4M3 5v14a2 2 0 0 0 2 2h16v-5M18 12a2 2 0 0 0 0 4h4v-4z"/>
+            </svg>
+          </div>
+          <p style={{ fontSize:11,color:'#6B7E8D',fontWeight:800,margin:'0 0 4px',textTransform:'uppercase',letterSpacing:0.5 }}>
+            เงินคงเหลือ
+          </p>
+          <p style={{ fontSize:22,fontWeight:900,color:balance>=0?'#059669':'#DC2626',margin:0,letterSpacing:'-0.5px' }}>
+            {balance>=0?'+':''}{fmtM(balance)}
+          </p>
+          <p style={{ fontSize:10,fontWeight:700,color:'#94A3B8',marginTop:2 }}>บาท</p>
+        </div>
+        <div onClick={()=>{}}
+          style={{ background:'var(--clay-card)',borderRadius:24,padding:'18px 20px',cursor:'pointer',
+            boxShadow:'var(--shadow-out)',border:'1px solid var(--clay-border)', transition:'all .2s' }}
+          onMouseDown={e=>e.currentTarget.style.transform='scale(0.96)'}
+          onMouseUp={e=>e.currentTarget.style.transform='scale(1)'}>
+          <div style={{ width:42,height:42,borderRadius:14,background:'linear-gradient(145deg, #FFF4E6, #FFE8CC)',
+            display:'flex',alignItems:'center',justifyContent:'center',marginBottom:12,
+            boxShadow:'0 4px 10px rgba(196,98,45,0.15)', border:'1px solid rgba(255,255,255,0.4)' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C4622D"
+              strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>
+            </svg>
+          </div>
+          <p style={{ fontSize:11,color:'#6B7E8D',fontWeight:800,margin:'0 0 4px',textTransform:'uppercase',letterSpacing:0.5 }}>
+            หนี้คงเหลือ
+          </p>
+          <p style={{ fontSize:22,fontWeight:900,color:remaining>0?'#EA580C':'#059669',margin:0,letterSpacing:'-0.5px' }}>
+            {remaining>0?`฿${fmtM(remaining)}`:'ไม่มีหนี้ 🎉'}
+          </p>
+          <p style={{ fontSize:10,fontWeight:700,color:'#94A3B8',marginTop:2 }}>บาท</p>
+        </div>
+      </div>
+
+      <Card className="p-4" style={{ overflow:'hidden',position:'relative' }}>
+        <div style={{ position:'absolute',right:-10,top:'50%',transform:'translateY(-50%)',opacity:.05,pointerEvents:'none' }}>
+          <svg width="90" height="90" viewBox="0 0 24 24" fill={riskColor}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10 }}>
+          <div style={{ display:'flex',alignItems:'center',gap:10 }}>
+            <div style={{ width:36,height:36,borderRadius:12,flexShrink:0,
+              background:riskColor+'22',display:'flex',alignItems:'center',justifyContent:'center' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={riskColor} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <path d="M12 9v4M12 17h.01"/>
+              </svg>
+            </div>
+            <div>
+              <p style={{ fontSize:10,fontWeight:700,color:'#9CA3AF',textTransform:'uppercase',letterSpacing:1,margin:0 }}>Financial Risk</p>
+              <span style={{ fontSize:13,fontWeight:900,color:'#374151' }}>ระดับความเสี่ยง</span>
+            </div>
+          </div>
+          <span style={{ fontSize:12,fontWeight:900,padding:'4px 10px',borderRadius:12,
+            background:riskColor+'20',color:riskColor }}>
+            {riskLabel} {risk}/100
+          </span>
+        </div>
+        <Progress pct={risk} color={riskColor} height={10}/>
+        <p style={{ fontSize:10,color:'#94A3B8',marginTop:6 }}>
+          {risk>=70?'⚠️ รายจ่ายเกินรายรับ — ควรลดค่าใช้จ่ายด่วน':risk>=50?'🟠 มีความเสี่ยง — ตรวจสอบรายจ่าย':risk>=35?'🟡 ระมัดระวังพอสมควร':'✅ การเงินอยู่ในเกณฑ์ดี'}
+        </p>
+      </Card>
+
+      <Card className="p-4">
+        <div style={{ display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginBottom:16 }}>
+          {[['💰','รายรับ',`+${fmtM(totalIn)}`,'#F0FDF4','#059669'],
+            ['💸','รายจ่าย',`-${fmtM(totalOut)}`,'#FFF5F5','#DC2626'],
+            ['⚡','ความเสี่ยง',`${risk}/100`,riskColor+'18',riskColor]].map(([ic,l,v,bg,c])=>(
+            <div key={l} style={{ background:bg,borderRadius:16,padding:12,textAlign:'center' }}>
+              <div style={{ fontSize:16,lineHeight:1,marginBottom:4 }}>{ic}</div>
+              <p style={{ fontSize:9,fontWeight:700,color:'#9CA3AF',textTransform:'uppercase',margin:'0 0 2px' }}>{l}</p>
+              <p style={{ fontSize:12,fontWeight:900,color:c,margin:0 }}>{v}</p>
+            </div>
+          ))}
+        </div>
+        {lineData.length > 1 && (
+          <div style={{ marginBottom:16 }}>
+            <p style={{ fontSize:11,fontWeight:700,color:'#9CA3AF',textTransform:'uppercase',letterSpacing:1,marginBottom:8 }}>รายการล่าสุด</p>
+            <ResponsiveContainer width="100%" height={140}>
+              <LineChart data={lineData}>
+                <XAxis dataKey="name" tick={{fontSize:10}}/>
+                <YAxis tick={{fontSize:10}} width={40}/>
+                <Tooltip formatter={(v,n,p)=>[`฿${fmt(v)}`,p.payload.type==='income'?'รายรับ':'รายจ่าย']} contentStyle={{borderRadius:12,fontSize:12}}/>
+                <Line type="monotone" dataKey="value" stroke="#2B5278" strokeWidth={2.5} dot={{r:3,fill:'#10B981'}}/>
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+        {pieData.length > 0 && (
+          <div>
+            <p style={{ fontSize:11,fontWeight:700,color:'#9CA3AF',textTransform:'uppercase',letterSpacing:1,marginBottom:8 }}>สัดส่วนรายรับ-จ่าย</p>
+            <ResponsiveContainer width="100%" height={180}>
+              <PieChart>
+                <Pie data={pieData} dataKey="value" cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={3}>
+                  {pieData.map((_,i)=><Cell key={i} fill={PIE_COLORS[i%PIE_COLORS.length]}/>)}
+                </Pie>
+                <Tooltip formatter={(v)=>`฿${fmt(v)}`} contentStyle={{borderRadius:12,fontSize:12}}/>
+                <Legend iconType="circle" iconSize={10} formatter={(v)=><span style={{fontSize:11}}>{v}</span>}/>
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </Card>
+
+      {/* Daily Calorie Summary */}
+      <Card className="p-5" style={{ overflow:'hidden',position:'relative' }}>
+        <div style={{ position:'absolute',right:-8,top:-8,fontSize:72,opacity:.05,pointerEvents:'none',lineHeight:1 }}>🔥</div>
+        <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14 }}>
+          <div style={{ display:'flex',alignItems:'center',gap:10 }}>
+            <div style={{ width:38,height:38,borderRadius:12,flexShrink:0,
+              background:'linear-gradient(145deg,#F97316,#EA580C)',
+              boxShadow:'var(--shadow-btn)',
+              display:'flex',alignItems:'center',justifyContent:'center' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
+              </svg>
+            </div>
+            <div>
+              <p style={{ fontSize:10,fontWeight:700,color:'#9CA3AF',textTransform:'uppercase',letterSpacing:1,margin:0 }}>Daily Calories</p>
+              <p style={{ fontSize:13,fontWeight:900,color:'#374151',margin:0 }}>แคลอรีวันนี้</p>
+            </div>
+          </div>
+          <span style={{ fontSize:11,fontWeight:700,padding:'4px 10px',borderRadius:10,
+            background:calPct>=100?'#FFF5F5':'#FFF7ED',color:calPct>=100?'#DC2626':'#EA580C' }}>
+            {calPct}%
+          </span>
+        </div>
+        <Progress pct={calPct} color={calPct>=100?'#EF4444':'#F97316'}/>
+        <div style={{ display:'flex',justifyContent:'space-between',marginTop:8 }}>
+          <span style={{ fontSize:12,fontWeight:800,color:calPct>=100?'#DC2626':'#F97316' }}>🔥 {fmt(totalCal)} kcal</span>
+          <span style={{ fontSize:11,color:'#94A3B8' }}>เป้า {fmt(targetCal)} kcal</span>
+        </div>
+      </Card>
+
+      {/* AI Insight - REMOVED AI BUDDY */}
+      <Card className="p-5" style={{ overflow:'hidden',position:'relative' }}>
+        <div style={{ position:'absolute',right:-6,top:-6,opacity:.05,fontSize:96,lineHeight:1,pointerEvents:'none',userSelect:'none' }}>💡</div>
+        <div style={{ display:'flex',alignItems:'center',gap:12,marginBottom:14 }}>
+          <div style={{ width:40,height:40,borderRadius:12,flexShrink:0,
+            background:'linear-gradient(135deg,#2B5278,#1C3D5A)',
+            display:'flex',alignItems:'center',justifyContent:'center' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+          </div>
+          <div style={{ flex:1 }}>
+            <p style={{ fontSize:10,fontWeight:700,color:'#9CA3AF',textTransform:'uppercase',letterSpacing:2,margin:0 }}>Today Insight</p>
+            <h3 style={{ fontSize:13,fontWeight:900,color:'#1E293B',margin:0 }}>สรุปวันนี้</h3>
+          </div>
+        </div>
+        <div style={{ display:'flex',flexDirection:'column',gap:8 }}>
+          {totalCal>targetCal&&<div style={{ display:'flex',alignItems:'flex-start',gap:8,padding:12,borderRadius:12,background:'#F5EBEB' }}><span>🍽️</span><p style={{ fontSize:12,fontWeight:600,color:'#B91C1C',margin:0 }}>แคลอรีวันนี้เกินเป้าหมาย {fmt(totalCal-targetCal)} kcal</p></div>}
+          {calPct>=80&&calPct<100&&<div style={{ display:'flex',alignItems:'flex-start',gap:8,padding:12,borderRadius:12,background:'#F5EDDF' }}><span>🔔</span><p style={{ fontSize:12,fontWeight:600,color:'#B45309',margin:0 }}>ใกล้ถึงเป้าแคลอรีแล้ว — ระวังของว่างช่วงเย็น</p></div>}
+          {risk<=30&&totalCal<=targetCal&&(!myApp||debtPct>=30)&&<div style={{ display:'flex',alignItems:'flex-start',gap:8,padding:12,borderRadius:12,background:'#EBF2EE' }}><span>🟢</span><p style={{ fontSize:12,fontWeight:600,color:'#065F46',margin:0 }}>พฤติกรรมวันนี้อยู่ในเกณฑ์ดี ทั้งการเงินและสุขภาพ ✓</p></div>}
+          {txns.length===0&&foods.length===0&&<p style={{ fontSize:12,color:'#94A3B8',textAlign:'center',padding:8 }}>เริ่มบันทึกข้อมูลเพื่อรับข้อมูลเชิงลึก</p>}
+        </div>
+      </Card>
+
+      {/* Emergency Fund */}
+      <EmergencyFundCard emergencyFund={emergencyFund} setEmergencyFund={setEmergencyFund}/>
+    </div>
+  );
+}
+
+// ── Money Screen ─────────────────────────────────────────────
+function MoneyScreen({ txns, setTxns, toast, accountsMgr }) {
+  const [type,        setType]       = useState('expense');
+  const [cat,         setCat]        = useState('');
+  const [amount,      setAmount]     = useState('');
+  const [note,        setNote]       = useState('');
+  const [bank, setBank] = useState(() => {
+    try {
+      const accs = JSON.parse(localStorage.getItem('calcash_accounts') || '[]');
+      return accs?.[0]?.id || 'cash';
+    } catch { return 'cash'; }
+  });
+
+  // Sync bank → first account whenever accountsMgr loads
+  useEffect(() => {
+    if (!accountsMgr) return;
+    const accs = accountsMgr.accounts;
+    if (accs.length > 0 && !accs.find(a => a.id === bank)) {
+      setBank(accs[0].id); // auto-correct to first valid account
+    }
+  }, [accountsMgr?.accounts]);
+
+  // FIX #2: Add daily budget reset hook
+  const [dailyBudget, setDailyBudget]= useState(()=>{
+    try{ return +localStorage.getItem('calcash_dailyBudget')||500; }catch{ return 500; }
+  });
+  const [editingBudget, setEditingBudget] = useState(false);
+  const [budgetInput,   setBudgetInput]   = useState('');
+
+  // Use the new daily budget reset hook
+  useDailyBudgetReset({ dailyBudget, setDailyBudget });
+
+  const cats = type==='income'?INCOME_CATS:EXPENSE_CATS;
+  const totalIn  = txns.filter(t=>t.type==='income').reduce((a,t)=>a+t.amount,0);
+  const totalOut = txns.filter(t=>t.type==='expense').reduce((a,t)=>a+t.amount,0);
+  const net      = totalIn - totalOut;
+
+  // Daily stats — filter today's expenses by date string prefix (DD/MM/YYYY pattern)
+  const todayStr = new Date().toLocaleDateString('th-TH',{day:'2-digit',month:'2-digit',year:'numeric'});
+  const todayExp = txns
+  .filter(t=>t.type==='expense' && t.date && t.date.startsWith(todayStr))
+  .reduce((a,t)=>a+t.amount, 0);
+  const remaining = dailyBudget - todayExp;
+  const budgetPct = dailyBudget>0 ? clamp(Math.round(todayExp/dailyBudget*100),0,100) : 0;
+  const isOver    = remaining < 0;
+
+  useEffect(()=>{ try{ localStorage.setItem('calcash_dailyBudget', String(dailyBudget)); }catch{} }, [dailyBudget]);
+
+  const saveBudget = () => {
+    const v = +budgetInput;
+    if (!isNaN(v) && v > 0) { setDailyBudget(v); toast(`ตั้งเป้าหมายรายวัน ฿${fmt(v)} แล้ว ✓`); }
+    setEditingBudget(false);
+  };
+
+  const add = () => {
+    // ── Validation ──
+    if (!cat) {
+      toast('กรุณาเลือกหมวดหมู่ก่อนนะครับ ✏️', '#C4622D'); return;
+    }
+    if (!amount || +amount <= 0) {
+      toast('กรุณากรอกจำนวนเงินให้ถูกต้องครับ 💰', '#C4622D'); return;
+    }
+
+    // ── หา account ที่เลือก ──
+    const accs = accountsMgr?.accounts || [];
+    let matchedAcc = accs.find(a => a.id === bank);
+    if (!matchedAcc && accs.length > 0) {
+      matchedAcc = accs[0];
+      setBank(accs[0].id);
+    }
+
+    // ── snapshot ค่าปัจจุบัน ──
+    const snapCat    = cat;
+    const snapAmount = +amount;
+    const snapNote   = note.trim();
+    const snapType   = type;
+    const snapBank   = matchedAcc?.id || bank;
+
+    // ── สร้าง transaction ──
+    const t = {
+      id:     Date.now(),
+      type:   snapType,
+      cat:    snapCat,
+      amount: snapAmount,
+      note:   snapNote,
+      date:   todayTH(),
+      bank:   snapBank,
+    };
+
+    // ── Functional update — keep max 30, newest first ──
+    const TXN_LIMIT = 30;
+    setTxns(prev => {
+      const next = [t, ...prev].slice(0, TXN_LIMIT);
+      db.set({ txns: next });   // sync localStorage
+      return next;
+    });
+
+    // ── Reset form ──
+    setAmount('');
+    setNote('');
+    setCat('');
+
+    // ── อัปเดตยอด Multi-Account ──
+    if (accountsMgr && matchedAcc) {
+      accountsMgr.updateBalance(matchedAcc.id, snapAmount, snapType);
+    }
+
+    const accName = matchedAcc?.name || snapBank;
+    toast('บันทึกแล้ว ✓ (' + accName + ')');
+
+    // ── Scroll to list ──
+    setTimeout(() => {
+      const el = document.getElementById('txn-list');
+      if (el) el.scrollIntoView({ behavior:'smooth', block:'start' });
+    }, 150);
+
+    sbGetSession().then(u => { if (u) sbInsertTxn(t, u.id); });
+  };
+
+  const del=(id)=>{
+    const up=txns.filter(t=>t.id !== id); setTxns(up); db.set({txns:up});
+    sbDeleteTxn(id); // fire-and-forget Supabase delete
+  };
+
+  return (
+    <div className="space-y-4">
+      <h2 className="text-2xl font-black text-slate-900">💰 รายรับ–รายจ่าย</h2>
+
+      {/* ── OVERALL SUMMARY BANNER ── */}
+      <div style={{ borderRadius:24,padding:20,background:'linear-gradient(145deg,#0F2537,#1C3D5A,#2B5278)',boxShadow:'var(--shadow-out)' }}>
+        <div style={{ display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,color:'#fff' }}>
+          <div><p style={{ fontSize:9,opacity:.5,textTransform:'uppercase' }}>รายรับ</p><p style={{ fontSize:15,fontWeight:900,color:'#BBF7D0' }}>+{fmtM(totalIn)}</p></div>
+          <div style={{ textAlign:'center' }}><p style={{ fontSize:9,opacity:.5,textTransform:'uppercase' }}>สุทธิ</p><p style={{ fontSize:15,fontWeight:900 }}>{net>=0?'+':''}{fmtM(net)}</p></div>
+          <div style={{ textAlign:'right' }}><p style={{ fontSize:9,opacity:.5,textTransform:'uppercase' }}>รายจ่าย</p><p style={{ fontSize:15,fontWeight:900,color:'#FECACA' }}>-{fmtM(totalOut)}</p></div>
+        </div>
+      </div>
+
+      {/* ── DAILY BUDGET SUMMARY CARD ── */}
+      <Card className="p-5" style={{ overflow:'hidden',position:'relative' }}>
+        {/* deco bg */}
+        <div style={{ position:'absolute',right:-8,top:-8,fontSize:72,opacity:.05,pointerEvents:'none',lineHeight:1 }}>📅</div>
+
+        {/* Header row */}
+        <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14 }}>
+          <div style={{ display:'flex',alignItems:'center',gap:10 }}>
+            <div style={{ width:38,height:38,borderRadius:12,flexShrink:0,
+              background:'linear-gradient(145deg,#A83240,#8B2635)',
+              boxShadow:'var(--shadow-btn)',
+              display:'flex',alignItems:'center',justifyContent:'center' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/>
+              </svg>
+            </div>
+            <div>
+              <p style={{ fontSize:10,fontWeight:700,color:'#8A9BA8',textTransform:'uppercase',letterSpacing:1.5,margin:0 }}>Today's Budget</p>
+              <p style={{ fontSize:13,fontWeight:900,color:'#1C2C3A',margin:0 }}>สรุปยอดรายวัน</p>
+            </div>
+          </div>
+          <button onClick={()=>{ setBudgetInput(String(dailyBudget)); setEditingBudget(true); }}
+            style={{ fontSize:11,fontWeight:700,padding:'6px 12px',borderRadius:12,
+              background:'var(--clay-inset)',boxShadow:'var(--shadow-in)',
+              border:'1px solid var(--clay-border)',color:'#6B7E8D',cursor:'pointer' }}>
+            🎯 ตั้งเป้า
+          </button>
+        </div>
+
+        {/* Budget edit inline */}
+        {editingBudget && (
+          <div style={{ display:'flex',gap:8,marginBottom:14,alignItems:'center' }}>
+            <div style={{ position:'relative',flex:1 }}>
+              <span style={{ position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',
+                fontWeight:700,color:'#8A9BA8',fontSize:14 }}>฿</span>
+              <input type="number" value={budgetInput} onChange={e=>setBudgetInput(e.target.value)}
+                onKeyDown={e=>{ if(e.key==='Enter')saveBudget(); if(e.key==='Escape')setEditingBudget(false); }}
+                autoFocus className="clay-input" style={{ paddingLeft:28,fontSize:18,fontWeight:900,color:'#A83240' }}/>
+            </div>
+            <button onClick={saveBudget} className="clay-btn-navy" style={{ padding:'10px 20px',width:'auto',flexShrink:0,fontSize:13 }}>บันทึก</button>
+            <button onClick={()=>setEditingBudget(false)}
+              style={{ padding:'10px 14px',borderRadius:12,background:'var(--clay-inset)',
+                boxShadow:'var(--shadow-in)',border:'1px solid var(--clay-border)',
+                color:'#8A9BA8',cursor:'pointer',fontWeight:700,flexShrink:0 }}>✕</button>
+          </div>
+        )}
+
+        {/* 3 stat pills */}
+        <div style={{ display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginBottom:14 }}>
+          {/* Goal */}
+          <div style={{ padding:'10px 8px',borderRadius:14,textAlign:'center',
+            background:'linear-gradient(145deg,#EAF0F6,#DDE8F0)',boxShadow:'var(--shadow-out)',
+            border:'1px solid #C8D8E8' }}>
+            <p style={{ fontSize:9,fontWeight:700,color:'#4A7FA5',textTransform:'uppercase',margin:'0 0 3px',letterSpacing:1 }}>เป้าหมาย</p>
+            <p style={{ fontSize:15,fontWeight:900,color:'#1C3D5A',margin:0 }}>฿{fmt(dailyBudget)}</p>
+          </div>
+          {/* Used today */}
+          <div style={{ padding:'10px 8px',borderRadius:14,textAlign:'center',
+            background:isOver?'linear-gradient(145deg,#F5EBEB,#EDD8D8)':'linear-gradient(145deg,#FAF0E8,#F5E8D8)',
+            boxShadow:'var(--shadow-out)',
+            border:`1px solid ${isOver?'#E8C8C8':'#DDD0C0'}` }}>
+            <p style={{ fontSize:9,fontWeight:700,color:isOver?'#A83240':'#C4622D',textTransform:'uppercase',margin:'0 0 3px',letterSpacing:1 }}>วันนี้ใช้</p>
+            <p style={{ fontSize:15,fontWeight:900,color:isOver?'#A83240':'#C4622D',margin:0 }}>฿{fmt(todayExp)}</p>
+          </div>
+          {/* Remaining */}
+          <div style={{ padding:'10px 8px',borderRadius:14,textAlign:'center',
+            background:isOver?'linear-gradient(145deg,#F5EBEB,#EDD8D8)':'linear-gradient(145deg,#E8F0F6,#D8EAF0)',
+            boxShadow:'var(--shadow-out)',
+            border:`1px solid ${isOver?'#E8C8C8':'#B8D0E0'}` }}>
+            <p style={{ fontSize:9,fontWeight:700,color:isOver?'#A83240':'#1C3D5A',textTransform:'uppercase',margin:'0 0 3px',letterSpacing:1 }}>คงเห
