@@ -1,0 +1,1213 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+<meta name="theme-color" content="#2B6B3D" />
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='rgb(31,82,48)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5.5 9h13l-1.4 9.3a2 2 0 0 1-2 1.7H8.9a2 2 0 0 1-2-1.7L5.5 9Z'/%3E%3Cpath d='M9 9V6.5a3 3 0 0 1 6 0V9'/%3E%3Cpath d='M9.5 13v3.2'/%3E%3Cpath d='M12 13v3.2'/%3E%3Cpath d='M14.5 13v3.2'/%3E%3C/svg%3E" />
+<title>Rimping Expiry Tracker (AI)</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          brand: {
+            50: '#eef6f0', 100: '#daeadd', 200: '#b3d2bc', 300: '#87b595',
+            400: '#5c9a6c', 500: '#3d7d4d', 600: '#2b6b3d', 700: '#1f5230',
+            800: '#163c23', 900: '#0e2716',
+          },
+        },
+        fontFamily: { sans: ['"Noto Sans Thai"', '"Inter"', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+        boxShadow: { card: '0 1px 2px 0 rgba(14,39,22,0.08), 0 2px 10px -2px rgba(14,39,22,0.12)' },
+      },
+    },
+  };
+</script>
+
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+
+<style>
+  body { background-color: #eef6f0; -webkit-tap-highlight-color: transparent; touch-action: manipulation; overscroll-behavior-y: contain; }
+  html { touch-action: manipulation; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  #qr-reader video { border-radius: 1rem; object-fit: cover; width: 100% !important; height: 100% !important; }
+
+  #print-area { display: none; }
+  #print-area table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  #print-area th, #print-area td { border: 1px solid #ccc; padding: 4px 8px; text-align: left; }
+  #print-area h2 { margin-bottom: 4px; font-size: 16px; }
+  #print-area p { margin-bottom: 12px; color: #555; font-size: 12px; }
+
+  @media print {
+    #app, #modal-root { display: none !important; }
+    #print-area { display: block !important; padding: 24px; }
+  }
+  
+  .autocomplete-items {
+    position: absolute;
+    border: 1px solid #d4d4d4;
+    border-bottom: none;
+    border-top: none;
+    z-index: 99;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 200px;
+    overflow-y: auto;
+    border-radius: 0 0 1rem 1rem;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  }
+  .autocomplete-items div {
+    padding: 10px;
+    cursor: pointer;
+    background-color: #fff;
+    border-bottom: 1px solid #d4d4d4;
+  }
+  .autocomplete-items div:hover {
+    background-color: #e9e9e9;
+  }
+  .autocomplete-active {
+    background-color: #2b6b3d !important;
+    color: #ffffff;
+  }
+</style>
+</head>
+<body class="font-sans text-stone-800">
+
+<div id="app"></div>
+<div id="modal-root"></div>
+<div id="toast-root"></div>
+<div id="print-area"></div>
+
+<script>
+'use strict';
+
+// ==================== Constants ====================
+const ADMIN_ID_DEFAULT = '63042';
+const ADMIN_PIN_DEFAULT = '0898';
+const DEV_ID = '63042';
+const DEV_PASSWORD = '003577';
+const URGENT_WINDOW_DAYS = 7;
+
+const STATUS_LABEL_TH = { expired: 'หมดอายุแล้ว', urgent: 'เร่งด่วน', safe: 'ปลอดภัย' };
+const STATUS_COLOR = { expired: '#dc2626', urgent: '#d97706', safe: '#2b6b3d' };
+
+const WEEKDAYS_TH = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
+const MONTHS_TH = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+
+const NAV_ITEMS = [
+  { id: 'dashboard', label: 'หน้าแรก', emoji: '🏠' },
+  { id: 'scanner', label: 'สแกน', emoji: '📷' },
+  { id: 'calendar', label: 'ปฏิทิน', emoji: '🗓️' },
+  { id: 'admin', label: 'AI ตรวจสอบ', emoji: '🤖' },
+];
+
+const FILTER_CHIPS = [
+  { id: 'all', label: 'ทั้งหมด' },
+  { id: 'expired', label: '🔴 หมดอายุแล้ว' },
+  { id: 'urgent', label: '🟡 เร่งด่วน' },
+  { id: 'safe', label: '🟢 ปลอดภัย' },
+];
+
+// ==================== State ====================
+const state = {
+  entered: false,
+  isAdminSession: false,
+  isDevSession: false,
+  tab: 'dashboard',
+  search: '',
+  filter: 'all',
+  cal: { year: new Date().getFullYear(), month: new Date().getMonth() + 1, selected: null },
+  scanner: { scannedCode: null },
+  staffCode: '',
+  realtimeStatus: { products: 'connecting', pending: 'connecting', admincreds: 'connecting' },
+};
+
+const STAFF_CODE_KEY = 'rimping_staff_code_v1';
+function getSavedStaffCode() {
+  try { return localStorage.getItem(STAFF_CODE_KEY) || ''; } catch { return ''; }
+}
+function saveStaffCode(code) {
+  try { localStorage.setItem(STAFF_CODE_KEY, code); } catch {}
+}
+
+let html5QrCode = null;
+let pendingLoginSuccess = null;
+let pendingRestoreProducts = null;
+
+// ==================== Supabase ====================
+const SUPABASE_URL = 'https://ndipoaxxbqwxafgvgmlu.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_HAHfwDUD3x68d-w7JQYbFw_WhVfvBta';
+const PRODUCTS_TABLE = 'expiry_products';
+const PENDING_TABLE = 'expiry_pending_submissions';
+const IMAGES_BUCKET = 'expiry-images';
+const sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+function rowToProduct(row) {
+  return {
+    id: row.id,
+    barcode: row.barcode || '',
+    name: row.name || '',
+    category: row.category || '',
+    imageUrl: row.image_url || '',
+    expiryDate: row.expiry_date || '',
+    notes: row.notes || '',
+    addedDate: row.added_date || '',
+    addedBy: row.added_by || '',
+    removed: !!row.removed,
+    removedDate: row.removed_date || null,
+    removedBy: row.removed_by || '',
+  };
+}
+function productToRow(p) {
+  return {
+    id: p.id,
+    barcode: p.barcode || '',
+    name: p.name || '',
+    category: p.category || '',
+    image_url: p.imageUrl || '',
+    expiry_date: p.expiryDate,
+    notes: p.notes || '',
+    added_date: p.addedDate || new Date().toISOString(),
+    added_by: p.addedBy || '',
+    removed: !!p.removed,
+    removed_date: p.removedDate || null,
+    removed_by: p.removedBy || '',
+  };
+}
+function rowToPending(row) {
+  return {
+    id: row.id,
+    barcode: row.barcode || '',
+    name: row.name || '',
+    expiryDate: row.expiry_date || '',
+    imageUrl: row.image_url || '',
+    expiryPhoto: row.expiry_photo || '',
+    submittedAt: row.submitted_at || '',
+    submittedBy: row.submitted_by || '',
+  };
+}
+function pendingToRow(p) {
+  return {
+    id: p.id,
+    barcode: p.barcode || '',
+    name: p.name || '',
+    expiry_date: p.expiryDate,
+    image_url: p.imageUrl || '',
+    expiry_photo: p.expiryPhoto || '',
+    submitted_at: p.submittedAt || new Date().toISOString(),
+    submitted_by: p.submittedBy || '',
+  };
+}
+
+async function uploadImageToStorage(dataUrl, prefix) {
+  if (!dataUrl || !dataUrl.startsWith('data:')) return dataUrl || '';
+  if (!sb) return dataUrl;
+  try {
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+    const path = `${prefix}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+    const { error: uploadError } = await sb.storage.from(IMAGES_BUCKET).upload(path, blob, { contentType: 'image/jpeg', upsert: true });
+    if (uploadError) { console.error('uploadImageToStorage failed:', uploadError); return dataUrl; }
+    const { data } = sb.storage.from(IMAGES_BUCKET).getPublicUrl(path);
+    return data.publicUrl;
+  } catch (err) {
+    console.error('uploadImageToStorage failed:', err);
+    return dataUrl;
+  }
+}
+
+async function fetchProductsFromCloud() {
+  if (!sb) throw new Error('ไม่พบไลบรารี Supabase');
+  const { data, error } = await sb.from(PRODUCTS_TABLE).select('*').order('expiry_date', { ascending: true });
+  if (error) throw error;
+  return (data || []).map(rowToProduct);
+}
+async function fetchPendingFromCloud() {
+  if (!sb) throw new Error('ไม่พบไลบรารี Supabase');
+  const { data, error } = await sb.from(PENDING_TABLE).select('*').order('submitted_at', { ascending: false });
+  if (error) throw error;
+  return (data || []).map(rowToPending);
+}
+
+async function saveProducts(list) {
+  if (!sb) return false;
+  try {
+    const ids = list.map((p) => p.id);
+    if (ids.length > 0) {
+      const { error: delError } = await sb.from(PRODUCTS_TABLE).delete().not('id', 'in', `(${ids.join(',')})`);
+      if (delError) throw delError;
+    } else {
+      const { error: delAllError } = await sb.from(PRODUCTS_TABLE).delete().gte('id', 0);
+      if (delAllError) throw delAllError;
+    }
+    if (list.length > 0) {
+      const rows = list.map(productToRow);
+      const { error: upsertError } = await sb.from(PRODUCTS_TABLE).upsert(rows, { onConflict: 'id' });
+      if (upsertError) throw upsertError;
+    }
+    return true;
+  } catch (err) {
+    console.error('saveProducts (Supabase) failed:', err);
+    return false;
+  }
+}
+
+async function savePending(list) {
+  if (!sb) return false;
+  try {
+    const ids = list.map((p) => p.id);
+    if (ids.length > 0) {
+      const { error: delError } = await sb.from(PENDING_TABLE).delete().not('id', 'in', `(${ids.join(',')})`);
+      if (delError) throw delError;
+    } else {
+      const { error: delAllError } = await sb.from(PENDING_TABLE).delete().gte('id', 0);
+      if (delAllError) throw delAllError;
+    }
+    if (list.length > 0) {
+      const rows = list.map(pendingToRow);
+      const { error: upsertError } = await sb.from(PENDING_TABLE).upsert(rows, { onConflict: 'id' });
+      if (upsertError) throw upsertError;
+    }
+    return true;
+  } catch (err) {
+    console.error('savePending (Supabase) failed:', err);
+    return false;
+  }
+}
+
+function isAdmin() { return state.isAdminSession === true || state.isDevSession === true; }
+function isDev() { return state.isDevSession === true; }
+
+const ADMIN_CREDS_TABLE = 'expiry_admin_creds';
+async function fetchAdminCredsFromCloud() {
+  if (!sb) return { id: ADMIN_ID_DEFAULT, pin: ADMIN_PIN_DEFAULT };
+  const { data, error } = await sb.from(ADMIN_CREDS_TABLE).select('*').eq('id', 1).maybeSingle();
+  if (error || !data) return { id: ADMIN_ID_DEFAULT, pin: ADMIN_PIN_DEFAULT };
+  return { id: data.admin_id || ADMIN_ID_DEFAULT, pin: data.pin || ADMIN_PIN_DEFAULT };
+}
+async function saveAdminCreds(creds) {
+  if (!sb) return false;
+  try {
+    const { error } = await sb.from(ADMIN_CREDS_TABLE).upsert(
+      { id: 1, admin_id: creds.id, pin: creds.pin, updated_at: new Date().toISOString() },
+      { onConflict: 'id' },
+    );
+    if (error) throw error;
+    return true;
+  } catch (err) {
+    console.error('saveAdminCreds failed:', err);
+    return false;
+  }
+}
+let adminCreds = { id: ADMIN_ID_DEFAULT, pin: ADMIN_PIN_DEFAULT };
+
+async function saveProductsOrWarn() {
+  const ok = await saveProducts(products);
+  if (!ok) {
+    showAlertModal('บันทึกขึ้น Supabase ไม่สำเร็จ\n\nกรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต แล้วลองใหม่อีกครั้ง');
+  }
+  return ok;
+}
+
+let products = [];
+let pendingSubmissions = [];
+
+// ==================== Domain helpers ====================
+function getStatus(expiryDateStr) {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const exp = new Date(expiryDateStr + 'T00:00:00');
+  const diffDays = Math.ceil((exp - today) / 86400000);
+  if (diffDays < 0) return 'expired';
+  if (diffDays <= URGENT_WINDOW_DAYS) return 'urgent';
+  return 'safe';
+}
+function daysUntil(expiryDateStr) {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const exp = new Date(expiryDateStr + 'T00:00:00');
+  return Math.ceil((exp - today) / 86400000);
+}
+function withComputed(p) { return { ...p, status: getStatus(p.expiryDate), daysLeft: daysUntil(p.expiryDate) }; }
+function formatThaiDate(dateStr) {
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
+}
+function escapeHtml(str) {
+  const p = document.createElement('p');
+  p.textContent = str;
+  return p.innerHTML;
+}
+
+// ==================== UI Components ====================
+function basketFilledSVG(size = 24, color = 'currentColor') {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M5.5 9h13l-1.4 9.3a2 2 0 0 1-2 1.7H8.9a2 2 0 0 1-2-1.7L5.5 9Z" fill="${color}" fill-opacity="0.2" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M9 9V6.5a3 3 0 0 1 6 0V9" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M9.5 13v3.2M12 13v3.2M14.5 13v3.2" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`;
+}
+
+function statusBadgeHTML(status) {
+  const labels = { expired: 'หมดอายุ', urgent: 'เร่งด่วน', safe: 'ปลอดภัย' };
+  const colors = { expired: 'bg-red-100 text-red-700', urgent: 'bg-amber-100 text-amber-700', safe: 'bg-brand-100 text-brand-700' };
+  return `<span class="inline-flex items-center rounded-full ${colors[status]} px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">${labels[status]}</span>`;
+}
+
+function onlineStatusBadgeHTML() {
+  const isOnline = state.realtimeStatus.products === 'connected';
+  return `<div class="flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[10px] font-bold shadow-sm ring-1 ring-stone-200">
+    <span class="h-1.5 w-1.5 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'}"></span>
+    <span class="${isOnline ? 'text-stone-600' : 'text-red-600'}">${isOnline ? 'เชื่อมต่อแล้ว' : 'ออฟไลน์'}</span>
+  </div>`;
+}
+
+function statCardHTML(label, count, colorClass, isActive, onClick) {
+  return `
+    <button onclick="${onClick}" class="flex-1 rounded-2xl p-3 text-left transition-all active:scale-95 ${colorClass} ${isActive ? 'ring-2 ring-offset-2' : 'ring-1'}">
+      <p class="text-[10px] font-bold uppercase tracking-wider opacity-70">${label}</p>
+      <p class="mt-1 text-2xl font-black">${count}</p>
+    </button>`;
+}
+
+function productCardHTML(p, { showActions = false, showRemoveAction = false } = {}) {
+  return `
+    <div onclick="viewProductDetail(${p.id})" class="flex items-center gap-3 rounded-2xl bg-white p-3 shadow-card ring-1 ring-brand-100/50 active:scale-[0.98] transition-transform">
+      <div class="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-stone-100">
+        ${p.imageUrl ? `<img src="${p.imageUrl}" class="h-full w-full object-cover" />` : `<div class="flex h-full w-full items-center justify-center text-2xl">📦</div>`}
+      </div>
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center justify-between gap-2">
+          <p class="truncate text-sm font-semibold text-stone-800">${escapeHtml(p.name)}</p>
+          ${statusBadgeHTML(p.status)}
+        </div>
+        <p class="mt-0.5 truncate text-xs text-stone-400">${escapeHtml(p.barcode)}</p>
+        <p class="mt-1 text-xs text-stone-500">หมดอายุ ${formatThaiDate(p.expiryDate)}</p>
+      </div>
+      ${showActions ? `
+        <div class="flex shrink-0 flex-col gap-1.5" onclick="event.stopPropagation()">
+          <button onclick="openProductForm(${p.id})" class="rounded-full bg-brand-50 p-1.5 text-brand-700 active:scale-95" aria-label="แก้ไข">✏️</button>
+          <button onclick="confirmDeleteProduct(${p.id})" class="rounded-full bg-red-50 p-1.5 text-red-600 active:scale-95" aria-label="ลบ">🗑️</button>
+        </div>` : ''}
+      ${showRemoveAction ? `
+        <button onclick="event.stopPropagation(); markRemovedConfirm(${p.id})" class="shrink-0 rounded-xl bg-stone-100 px-2.5 py-2 text-center text-[10px] font-bold leading-tight text-stone-600 active:scale-95" aria-label="เก็บออกแล้ว">📦<br/>เก็บออก</button>` : ''}
+    </div>`;
+}
+
+// ==================== App Navigation ====================
+function renderPage() {
+  const app = document.getElementById('app');
+  if (!state.entered) {
+    app.innerHTML = welcomeHTML();
+    return;
+  }
+  
+  let content = '';
+  switch (state.tab) {
+    case 'dashboard': content = dashboardHTML(); break;
+    case 'scanner': content = scannerHTML(); break;
+    case 'calendar': content = calendarHTML(); break;
+    case 'admin': content = adminHTML(); break;
+  }
+  
+  app.innerHTML = `
+    <div class="mx-auto min-h-screen max-w-md pb-24 pt-6 px-4">
+      ${content}
+      <nav class="fixed bottom-0 left-0 right-0 z-40 flex justify-center pb-safe">
+        <div class="mb-4 flex w-[90%] max-w-sm items-center justify-around rounded-3xl bg-white/80 p-2 shadow-2xl ring-1 ring-brand-100/50 backdrop-blur-xl">
+          ${NAV_ITEMS.map((item) => `
+            <button onclick="switchTab('${item.id}')" class="flex flex-col items-center gap-1 px-3 py-2 transition-all ${state.tab === item.id ? 'scale-110 text-brand-600' : 'text-stone-400 opacity-70'}">
+              <span class="text-xl">${item.emoji}</span>
+              <span class="text-[10px] font-bold uppercase tracking-wider">${item.label}</span>
+            </button>`).join('')}
+        </div>
+      </nav>
+    </div>`;
+
+  if (state.tab === 'scanner') initScanner();
+  if (state.tab === 'admin' && isAdmin()) {
+    const pendingList = document.getElementById('admin-pending-list');
+    if (pendingList) pendingList.innerHTML = adminPendingListHTML();
+    const removedList = document.getElementById('admin-removed-list');
+    if (removedList) removedList.innerHTML = adminRemovedListHTML();
+    const productList = document.getElementById('admin-product-list');
+    if (productList) productList.innerHTML = adminProductListHTML();
+  }
+}
+
+function welcomeHTML() {
+  return `
+    <div class="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-brand-600 to-brand-800 p-8 text-white">
+      <div class="mb-8 flex h-24 w-24 items-center justify-center rounded-[2.5rem] bg-white shadow-2xl ring-8 ring-white/20">
+        ${basketFilledSVG(56, '#2B6B3D')}
+      </div>
+      <h1 class="text-3xl font-black tracking-tight">Rimping Expiry</h1>
+      <p class="mt-2 text-center text-brand-100">ระบบติดตามและแจ้งเตือนสินค้าใกล้หมดอายุ<br/>เพื่อคุณภาพที่ดีที่สุดของลูกค้า</p>
+      
+      <div class="mt-12 w-full max-w-xs space-y-4">
+        <button onclick="openStaffLogin()" class="w-full rounded-2xl bg-white py-4 text-lg font-bold text-brand-700 shadow-xl active:scale-95 transition-transform">
+          เข้าใช้งานปกติ
+        </button>
+        <button onclick="openDevLogin()" class="w-full rounded-2xl bg-brand-900/40 py-4 text-lg font-bold text-white shadow-xl ring-1 ring-white/20 active:scale-95 transition-transform">
+          สำหรับผู้พัฒนา
+        </button>
+      </div>
+      
+      <p class="mt-12 text-[10px] font-bold uppercase tracking-widest text-brand-300/60">Rim Ping Supermarket © 2026</p>
+    </div>`;
+}
+
+function openStaffLogin() {
+  openModal(`
+    <div class="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center" onclick="if(event.target===this) closeModal()">
+      <div class="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl">
+        <h3 class="text-xl font-bold text-stone-800 text-center">ยืนยันตัวตนพนักงาน</h3>
+        <p class="mt-1 text-center text-xs text-stone-400">ระบุรหัสหรือชื่อพนักงานเพื่อเข้าสู่ระบบ</p>
+        <form id="staff-login-form" class="mt-6 space-y-4">
+          <input id="staff-login-code" type="text" placeholder="รหัสพนักงาน หรือ ชื่อเล่น" required class="w-full rounded-2xl border border-stone-200 px-4 py-3.5 text-center text-lg font-bold outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-100" />
+          <button type="submit" class="w-full rounded-2xl bg-brand-600 py-4 text-lg font-bold text-white shadow-lg active:scale-[0.98]">เข้าสู่ระบบ</button>
+        </form>
+      </div>
+    </div>
+  `);
+  document.getElementById('staff-login-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const code = document.getElementById('staff-login-code').value.trim();
+    if (code) {
+      state.staffCode = code;
+      saveStaffCode(code);
+      state.entered = true;
+      closeModal();
+      renderPage();
+    }
+  });
+}
+
+function openDevLogin() {
+  openModal(`
+    <div class="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center" onclick="if(event.target===this) closeModal()">
+      <div class="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl">
+        <h3 class="text-xl font-bold text-stone-800 text-center">ล็อกอินผู้พัฒนา</h3>
+        <form id="dev-login-form" class="mt-6 space-y-4">
+          <div>
+            <label class="mb-1 block text-xs font-bold text-stone-400 uppercase tracking-wider">ID</label>
+            <input id="dev-id" type="text" value="63042" required class="w-full rounded-2xl border border-stone-200 px-4 py-3 text-sm font-bold outline-none focus:border-brand-500" />
+          </div>
+          <div>
+            <label class="mb-1 block text-xs font-bold text-stone-400 uppercase tracking-wider">Password</label>
+            <input id="dev-pw" type="password" required class="w-full rounded-2xl border border-stone-200 px-4 py-3 text-sm font-bold outline-none focus:border-brand-500" />
+          </div>
+          <p id="dev-login-error" class="hidden text-xs font-medium text-red-600 text-center"></p>
+          <button type="submit" class="w-full rounded-2xl bg-stone-900 py-4 text-lg font-bold text-white shadow-lg active:scale-[0.98]">ยืนยันรหัสผ่าน</button>
+        </form>
+      </div>
+    </div>
+  `);
+  document.getElementById('dev-login-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const id = document.getElementById('dev-id').value.trim();
+    const pw = document.getElementById('dev-pw').value.trim();
+    if (id === DEV_ID && pw === DEV_PASSWORD) {
+      state.isDevSession = true;
+      state.staffCode = 'Developer';
+      state.entered = true;
+      closeModal();
+      renderPage();
+      showToast('🚀 เข้าสู่ระบบในโหมดผู้พัฒนา');
+    } else {
+      const err = document.getElementById('dev-login-error');
+      err.textContent = 'ID หรือรหัสผ่านไม่ถูกต้อง';
+      err.classList.remove('hidden');
+    }
+  });
+}
+
+function switchTab(id) {
+  if (state.tab === 'scanner') stopScanner();
+  state.tab = id;
+  renderPage();
+}
+
+// ==================== Dashboard ====================
+function dashboardHTML() {
+  const stats = computeStats();
+  const filtered = products
+    .map(withComputed)
+    .filter((p) => !p.removed)
+    .filter((p) => {
+      const matchSearch = p.name.toLowerCase().includes(state.search.toLowerCase()) || p.barcode.includes(state.search);
+      const matchFilter = state.filter === 'all' || p.status === state.filter;
+      return matchSearch && matchFilter;
+    })
+    .sort((a, b) => a.daysLeft - b.daysLeft);
+
+  return `
+    <div class="space-y-6">
+      <header class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-600 to-brand-800 shadow-lg shadow-brand-300/40 ring-1 ring-white/10">
+            ${basketFilledSVG(28, '#ffffff')}
+          </div>
+          <div>
+            <h1 class="text-xl font-extrabold tracking-tight text-stone-800">Rimping Expiry</h1>
+            <p class="text-xs font-medium text-stone-400">ระบบติดตามวันหมดอายุ</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="refreshFromCloud()" class="rounded-full bg-white p-2 text-stone-500 shadow-sm ring-1 ring-stone-200 active:scale-95" aria-label="รีเฟรชข้อมูล">🔄</button>
+          <div class="text-right">
+            <p class="text-[10px] font-bold uppercase tracking-widest text-stone-400">วันนี้</p>
+            <p class="text-sm font-bold text-stone-700">${formatThaiDate(new Date().toISOString().slice(0, 10))}</p>
+          </div>
+        </div>
+      </header>
+
+      <div class="flex items-center justify-between gap-2">
+        ${onlineStatusBadgeHTML()}
+        <button onclick="state.entered=false; state.isDevSession=false; state.isAdminSession=false; renderPage()" class="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-stone-500 shadow-sm ring-1 ring-stone-200 active:scale-95">🧑‍💼 ${escapeHtml(state.staffCode || '-')} (ออกจากระบบ)</button>
+      </div>
+
+      <div class="flex gap-3">
+        ${statCardHTML('หมดอายุ', stats.expired, 'bg-red-50 text-red-600 ring-red-100', state.filter === 'expired', "setFilter('expired')")}
+        ${statCardHTML('เร่งด่วน', stats.urgent, 'bg-amber-50 text-amber-600 ring-amber-100', state.filter === 'urgent', "setFilter('urgent')")}
+        ${statCardHTML('ปลอดภัย', stats.safe, 'bg-brand-50 text-brand-700 ring-brand-100', state.filter === 'safe', "setFilter('safe')")}
+      </div>
+
+      <div class="sticky top-2 z-30 space-y-3 rounded-3xl bg-white/60 p-2 shadow-sm ring-1 ring-brand-100/50 backdrop-blur-md">
+        <div class="relative">
+          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400">🔍</span>
+          <input 
+            type="text" 
+            placeholder="ค้นหาชื่อสินค้า หรือบาร์โค้ด..." 
+            value="${state.search}"
+            oninput="state.search = this.value; renderDashboardList()"
+            class="w-full rounded-2xl border-none bg-stone-100/50 py-3 pl-10 pr-4 text-sm outline-none ring-1 ring-stone-200/50 focus:bg-white focus:ring-2 focus:ring-brand-500/20"
+          />
+        </div>
+        <div class="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+          ${FILTER_CHIPS.map(chip => `
+            <button 
+              onclick="setFilter('${chip.id}')"
+              class="whitespace-nowrap rounded-full px-4 py-1.5 text-xs font-bold transition-all ${state.filter === chip.id ? 'bg-stone-800 text-white shadow-md' : 'bg-white text-stone-500 ring-1 ring-stone-200'}"
+            >
+              ${chip.label}
+            </button>
+          `).join('')}
+        </div>
+      </div>
+
+      <div id="dashboard-list" class="grid gap-3">
+        ${dashboardListHTML(filtered)}
+      </div>
+    </div>`;
+}
+
+function dashboardListHTML(list) {
+  if (list.length === 0) {
+    return `
+      <div class="flex flex-col items-center justify-center py-12 text-center">
+        <div class="mb-4 text-5xl">🍃</div>
+        <p class="text-sm font-bold text-stone-400">ไม่พบรายการสินค้า</p>
+        <button onclick="setFilter('all'); state.search=''; renderPage()" class="mt-2 text-xs font-bold text-brand-600">ล้างการค้นหา</button>
+      </div>`;
+  }
+  return list.map(p => productCardHTML(p, { showRemoveAction: true })).join('');
+}
+
+function renderDashboardList() {
+  const filtered = products
+    .map(withComputed)
+    .filter((p) => !p.removed)
+    .filter((p) => {
+      const matchSearch = p.name.toLowerCase().includes(state.search.toLowerCase()) || p.barcode.includes(state.search);
+      const matchFilter = state.filter === 'all' || p.status === state.filter;
+      return matchSearch && matchFilter;
+    })
+    .sort((a, b) => a.daysLeft - b.daysLeft);
+  document.getElementById('dashboard-list').innerHTML = dashboardListHTML(filtered);
+}
+
+function setFilter(f) {
+  state.filter = f;
+  renderPage();
+}
+
+// ==================== Scanner ====================
+function scannerHTML() {
+  return `
+    <div class="space-y-5">
+      <header class="flex items-center gap-2">
+        <span class="rounded-xl bg-gradient-to-br from-brand-600 to-brand-800 p-2 text-white text-lg shadow-sm ring-1 ring-white/10">📷</span>
+        <div>
+          <h1 class="text-lg font-bold text-stone-800">สแกนบาร์โค้ด</h1>
+          <p class="text-xs text-stone-400">สแกนเพื่อตรวจสอบหรือเพิ่มสินค้า</p>
+        </div>
+      </header>
+
+      <div class="relative aspect-[4/3] overflow-hidden rounded-3xl bg-black shadow-2xl ring-4 ring-white">
+        <div id="qr-reader" class="h-full w-full"></div>
+        <div id="camera-status" class="absolute inset-0 flex items-center justify-center bg-stone-900 text-center text-xs text-white/70">กำลังเปิดกล้อง...</div>
+        <div id="camera-frame" class="pointer-events-none absolute inset-6 rounded-xl border-2 border-brand-400 hidden"></div>
+      </div>
+
+      <button type="button" onclick="document.getElementById('scan-image-input').click()" class="flex w-full items-center justify-center gap-1.5 rounded-xl bg-white py-2.5 text-xs font-semibold text-brand-700 ring-1 ring-brand-200 active:scale-95">
+        🖼️ แทรกรูปภาพเพื่อสแกนบาร์โค้ด
+      </button>
+      <input id="scan-image-input" type="file" accept="image/*" class="hidden" onchange="handleScanImageFile(event)" />
+      
+      <form id="manual-form" class="flex gap-2">
+        <input id="manual-input" placeholder="หรือพิมพ์บาร์โค้ดเอง..." class="flex-1 rounded-2xl border-none bg-white px-4 py-3 text-sm font-bold outline-none ring-1 ring-stone-200 focus:ring-2 focus:ring-brand-500" />
+        <button type="submit" class="rounded-2xl bg-brand-600 px-6 font-bold text-white shadow-lg active:scale-95">ไป</button>
+      </form>
+
+      <div id="scan-result" class="min-h-[100px]"></div>
+    </div>`;
+}
+
+function initScanner() {
+  if (!window.Html5Qrcode) return;
+  html5QrCode = new Html5Qrcode('qr-reader');
+  html5QrCode.start(
+    { facingMode: 'environment' },
+    { fps: 10, qrbox: { width: 250, height: 150 } },
+    (decodedText) => {
+      playBeep();
+      handleScannedBarcode(decodedText);
+    },
+    () => {}
+  ).then(() => {
+    const status = document.getElementById('camera-status');
+    if (status) status.remove();
+    const frame = document.getElementById('camera-frame');
+    if (frame) frame.classList.remove('hidden');
+  }).catch(err => {
+    console.error(err);
+    const status = document.getElementById('camera-status');
+    if (status) status.textContent = 'ไม่สามารถเข้าถึงกล้องได้';
+  });
+
+  document.getElementById('manual-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const val = document.getElementById('manual-input').value.trim();
+    if (val) handleScannedBarcode(val);
+  });
+}
+
+function stopScanner() {
+  if (html5QrCode) {
+    const scanner = html5QrCode;
+    html5QrCode = null;
+    scanner.stop().catch(() => {}).finally(() => { try { scanner.clear(); } catch {} });
+  }
+}
+
+function handleScannedBarcode(barcode) {
+  const existing = products.map(withComputed).filter(p => p.barcode === barcode && !p.removed);
+  const resEl = document.getElementById('scan-result');
+  
+  if (existing.length > 0) {
+    resEl.innerHTML = `
+      <div class="space-y-3">
+        <p class="text-xs font-bold text-stone-400 uppercase tracking-wider">พบสินค้าในระบบ (${existing.length} รายการ)</p>
+        ${existing.map(p => productCardHTML(p)).join('')}
+        <button onclick="${isDev() ? `openProductForm(null, '${barcode}')` : `openSubmissionForm('${barcode}')`}" class="w-full rounded-2xl bg-brand-50 py-3 text-sm font-bold text-brand-700 ring-1 ring-brand-200 active:scale-95">
+          ${isDev() ? '+ เพิ่มล็อตใหม่โดยตรง' : '+ เพิ่มวันหมดอายุล็อตใหม่ (ส่ง AI)'}
+        </button>
+      </div>`;
+  } else {
+    resEl.innerHTML = `
+      <div class="flex flex-col items-center justify-center rounded-3xl bg-white p-8 text-center shadow-sm ring-1 ring-stone-200">
+        <div class="mb-4 text-4xl">❓</div>
+        <p class="text-sm font-bold text-stone-800">ไม่พบข้อมูลบาร์โค้ดนี้: ${barcode}</p>
+        <p class="mt-1 text-xs text-stone-400">สินค้านี้ยังไม่มีในฐานข้อมูล</p>
+        <button onclick="${isDev() ? `openProductForm(null, '${barcode}')` : `openSubmissionForm('${barcode}')`}" class="mt-6 w-full rounded-2xl bg-brand-600 py-3.5 text-sm font-bold text-white shadow-lg active:scale-95">
+          ${isDev() ? 'เพิ่มสินค้าใหม่โดยตรง' : 'ส่งข้อมูลให้ AI ตรวจสอบ'}
+        </button>
+      </div>`;
+  }
+}
+
+// ==================== Calendar ====================
+function calendarHTML() {
+  const daysInMonth = new Date(state.cal.year, state.cal.month, 0).getDate();
+  const firstDay = new Date(state.cal.year, state.cal.month - 1, 1).getDay();
+  
+  const events = products.map(withComputed).filter(p => !p.removed);
+  const getDayEvents = (d) => {
+    const dStr = `${state.cal.year}-${String(state.cal.month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    return events.filter(p => p.expiryDate === dStr);
+  };
+
+  return `
+    <div class="space-y-5">
+      <header class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="rounded-xl bg-gradient-to-br from-brand-600 to-brand-800 p-2 text-white text-lg shadow-sm ring-1 ring-white/10">🗓️</span>
+          <h1 class="text-lg font-bold text-stone-800">ปฏิทินวันหมดอายุ</h1>
+        </div>
+        <div class="flex items-center gap-3 rounded-xl bg-white p-1 ring-1 ring-stone-200">
+          <button onclick="changeMonth(-1)" class="p-1.5 text-stone-400 active:scale-90">◀</button>
+          <span class="text-xs font-bold text-stone-700 min-w-[80px] text-center">${MONTHS_TH[state.cal.month - 1]} ${state.cal.year + 543}</span>
+          <button onclick="changeMonth(1)" class="p-1.5 text-stone-400 active:scale-90">▶</button>
+        </div>
+      </header>
+
+      <div class="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-stone-200">
+        <div class="grid grid-cols-7 mb-2">
+          ${WEEKDAYS_TH.map(d => `<div class="text-center text-[10px] font-bold text-stone-400 uppercase">${d}</div>`).join('')}
+        </div>
+        <div class="grid grid-cols-7 gap-1">
+          ${Array(firstDay).fill(0).map(() => `<div class="aspect-square"></div>`).join('')}
+          ${Array(daysInMonth).fill(0).map((_, i) => {
+            const d = i + 1;
+            const dayEvents = getDayEvents(d);
+            const isSelected = state.cal.selected === d;
+            const hasExpired = dayEvents.some(p => p.status === 'expired');
+            const hasUrgent = dayEvents.some(p => p.status === 'urgent');
+            
+            return `
+              <button onclick="selectCalDate(${d})" class="relative flex aspect-square flex-col items-center justify-center rounded-xl transition-all ${isSelected ? 'bg-brand-600 text-white shadow-lg' : 'hover:bg-stone-50'}">
+                <span class="text-sm font-bold">${d}</span>
+                <div class="mt-0.5 flex gap-0.5">
+                  ${hasExpired ? `<span class="h-1 w-1 rounded-full bg-red-500"></span>` : ''}
+                  ${hasUrgent ? `<span class="h-1 w-1 rounded-full bg-amber-500"></span>` : ''}
+                  ${dayEvents.length > 0 && !hasExpired && !hasUrgent ? `<span class="h-1 w-1 rounded-full bg-brand-400"></span>` : ''}
+                </div>
+              </button>`;
+          }).join('')}
+        </div>
+      </div>
+
+      <div id="calendar-detail" class="space-y-3">
+        ${state.cal.selected ? calendarDetailHTML(getDayEvents(state.cal.selected)) : `<p class="py-8 text-center text-xs text-stone-400 italic">เลือกวันที่เพื่อดูรายการสินค้า</p>`}
+      </div>
+    </div>`;
+}
+
+function changeMonth(delta) {
+  state.cal.month += delta;
+  if (state.cal.month > 12) { state.cal.month = 1; state.cal.year++; }
+  if (state.cal.month < 1) { state.cal.month = 12; state.cal.year--; }
+  state.cal.selected = null;
+  renderPage();
+}
+
+function selectCalDate(d) {
+  state.cal.selected = d;
+  renderPage();
+}
+
+function calendarDetailHTML(list) {
+  if (list.length === 0) return `<p class="py-8 text-center text-xs text-stone-400 italic">ไม่มีสินค้าหมดอายุในวันนี้</p>`;
+  return `
+    <p class="text-xs font-bold text-stone-400 uppercase tracking-wider">รายการสินค้า (${list.length})</p>
+    ${list.map(p => productCardHTML(p)).join('')}`;
+}
+
+// ==================== AI Review / Admin ====================
+function adminHTML() {
+  if (!isAdmin()) {
+    return `
+      <div class="flex flex-col items-center justify-center py-20 text-center">
+        <div class="mb-6 flex h-20 w-20 items-center justify-center rounded-3xl bg-stone-100 text-4xl">🔒</div>
+        <h2 class="text-xl font-bold text-stone-800">พื้นที่สำหรับเจ้าหน้าที่</h2>
+        <p class="mt-2 text-sm text-stone-400">กรุณาเข้าสู่ระบบเพื่อจัดการข้อมูล</p>
+        <button onclick="openAdminLogin()" class="mt-8 rounded-2xl bg-brand-600 px-10 py-3.5 text-sm font-bold text-white shadow-lg active:scale-95">เข้าสู่ระบบแอดมิน</button>
+      </div>`;
+  }
+
+  return `
+    <div class="space-y-6">
+      <header class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="rounded-xl bg-sky-600 p-2 text-white text-lg shadow-sm">🤖</span>
+          <h1 class="text-lg font-bold text-stone-800">AI ตรวจสอบ & จัดการ</h1>
+        </div>
+        <button onclick="openAdminSettings()" class="text-lg">⚙️</button>
+      </header>
+
+      <div class="space-y-4">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xs font-black uppercase tracking-widest text-stone-400">คำขอรอตรวจสอบ (${pendingSubmissions.length})</h2>
+          ${isDev() ? `<button onclick="openProductForm()" class="rounded-full bg-brand-600 px-3 py-1 text-[10px] font-bold text-white">+ เพิ่มสินค้าโดยตรง</button>` : ''}
+        </div>
+        <div id="admin-pending-list" class="grid gap-4"></div>
+      </div>
+
+      <div class="h-px bg-stone-200"></div>
+
+      <div class="space-y-4">
+        <h2 class="text-xs font-black uppercase tracking-widest text-stone-400">สินค้าทั้งหมดในระบบ</h2>
+        <div id="admin-product-list" class="grid gap-3"></div>
+      </div>
+    </div>`;
+}
+
+function openAdminLogin() {
+  openModal(`
+    <div class="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center" onclick="if(event.target===this) closeModal()">
+      <div class="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl">
+        <h3 class="text-xl font-bold text-stone-800 text-center">เข้าสู่ระบบแอดมิน</h3>
+        <form id="admin-login-form" class="mt-6 space-y-4">
+          <input id="admin-id" type="text" placeholder="รหัสพนักงาน" required class="w-full rounded-2xl border border-stone-200 px-4 py-3.5 text-center text-lg font-bold outline-none focus:border-sky-500" />
+          <input id="admin-pin" type="password" maxlength="4" placeholder="PIN 4 หลัก" required class="w-full rounded-2xl border border-stone-200 px-4 py-3.5 text-center text-lg font-bold outline-none focus:border-sky-500" />
+          <p id="admin-login-error" class="hidden text-xs font-medium text-red-600 text-center"></p>
+          <button type="submit" class="w-full rounded-2xl bg-sky-600 py-4 text-lg font-bold text-white shadow-lg active:scale-[0.98]">ยืนยันตัวตน</button>
+        </form>
+      </div>
+    </div>
+  `);
+  document.getElementById('admin-login-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const id = document.getElementById('admin-id').value.trim();
+    const pin = document.getElementById('admin-pin').value.trim();
+    if (id === adminCreds.id && pin === adminCreds.pin) {
+      state.isAdminSession = true;
+      closeModal();
+      renderPage();
+    } else {
+      const err = document.getElementById('admin-login-error');
+      err.textContent = 'รหัสพนักงานหรือ PIN ไม่ถูกต้อง';
+      err.classList.remove('hidden');
+    }
+  });
+}
+
+function adminPendingListHTML() {
+  if (pendingSubmissions.length === 0) return `<p class="py-4 text-center text-xs text-stone-400 italic">ยังไม่มีคำขอใหม่</p>`;
+  return pendingSubmissions.map(item => `
+    <div class="rounded-2xl bg-white p-3 shadow-card ring-1 ring-sky-100 space-y-3">
+      <div class="flex gap-3">
+        <div class="w-1/2">
+          <img src="${item.imageUrl}" class="h-32 w-full rounded-xl object-cover ring-1 ring-stone-100" />
+          <p class="mt-1 text-center text-[10px] font-bold text-stone-400">📦 รูปสินค้า</p>
+        </div>
+        <div class="flex-1">
+          <img src="${item.expiryPhoto}" class="h-32 w-full rounded-xl object-cover ring-1 ring-stone-100" />
+          <p class="mt-1 text-center text-[10px] font-bold text-stone-400">📅 รูปวันหมดอายุ</p>
+        </div>
+      </div>
+      <div class="space-y-2">
+        <input id="pending-name-${item.id}" value="${escapeHtml(item.name)}" class="w-full rounded-lg border border-stone-200 px-2 py-1.5 text-sm font-bold" />
+        <div class="flex gap-2">
+          <input id="pending-barcode-${item.id}" value="${escapeHtml(item.barcode)}" class="w-1/2 rounded-lg border border-stone-200 px-2 py-1.5 text-xs" />
+          <input id="pending-expiry-${item.id}" type="date" value="${item.expiryDate}" class="w-1/2 rounded-lg border border-stone-200 px-2 py-1.5 text-xs" />
+        </div>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="rejectPending(${item.id})" class="flex-1 rounded-lg bg-stone-100 py-2 text-xs font-bold text-stone-600">❌ ปฏิเสธ</button>
+        <button onclick="approvePending(${item.id})" class="flex-1 rounded-lg bg-brand-600 py-2 text-xs font-bold text-white">✅ อนุมัติ</button>
+      </div>
+    </div>`).join('');
+}
+
+function adminProductListHTML() {
+  const activeProducts = products.filter(p => !p.removed);
+  if (activeProducts.length === 0) return `<p class="py-4 text-center text-xs text-stone-400 italic">ไม่มีสินค้าในระบบ</p>`;
+  return activeProducts.map(p => productCardHTML(withComputed(p), { showActions: true })).join('');
+}
+
+async function approvePending(id) {
+  const item = pendingSubmissions.find(p => p.id === id);
+  if (!item) return;
+  
+  const name = document.getElementById(`pending-name-${id}`).value.trim();
+  const barcode = document.getElementById(`pending-barcode-${id}`).value.trim();
+  const expiryDate = document.getElementById(`pending-expiry-${id}`).value;
+  
+  if (!name || !expiryDate) return showAlertModal('กรุณากรอกข้อมูลให้ครบถ้วน');
+  
+  const newId = products.length > 0 ? Math.max(...products.map(p => p.id)) + 1 : 1;
+  products.push({
+    id: newId, barcode, name, category: '',
+    imageUrl: item.imageUrl,
+    expiryDate, addedDate: new Date().toISOString(),
+    addedBy: item.submittedBy || state.staffCode
+  });
+  
+  pendingSubmissions = pendingSubmissions.filter(p => p.id !== id);
+  await saveProducts(products);
+  await savePending(pendingSubmissions);
+  renderPage();
+  showToast('✅ อนุมัติสินค้าเข้าสู่ระบบแล้ว');
+}
+
+async function rejectPending(id) {
+  pendingSubmissions = pendingSubmissions.filter(p => p.id !== id);
+  await savePending(pendingSubmissions);
+  renderPage();
+  showToast('🗑️ ปฏิเสธคำขอแล้ว');
+}
+
+// ==================== Forms & Modals ====================
+function openModal(html) {
+  const root = document.getElementById('modal-root');
+  root.innerHTML = html;
+}
+function closeModal() {
+  document.getElementById('modal-root').innerHTML = '';
+}
+
+function openSubmissionForm(barcode) {
+  const existing = products.find(p => p.barcode === barcode);
+  openModal(`
+    <div class="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center" onclick="if(event.target===this) closeModal()">
+      <div class="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl overflow-y-auto max-h-[90vh]">
+        <h3 class="text-xl font-bold text-stone-800">ส่งคำขอให้ AI ตรวจสอบ</h3>
+        <form id="submission-form" class="mt-4 space-y-4">
+          <input id="sub-name" placeholder="ชื่อสินค้า *" value="${existing ? escapeHtml(existing.name) : ''}" required class="w-full rounded-2xl border border-stone-200 px-4 py-3 text-sm font-bold" />
+          <input id="sub-barcode" placeholder="บาร์โค้ด" value="${barcode}" class="w-full rounded-2xl border border-stone-200 px-4 py-3 text-sm" />
+          <div id="sub-dates" class="space-y-2">
+            <input type="date" required class="sub-date-input w-full rounded-2xl border border-stone-200 px-4 py-3 text-sm" />
+          </div>
+          <div class="flex gap-3">
+            <label class="flex-1 cursor-pointer rounded-2xl bg-stone-50 p-4 text-center ring-1 ring-stone-200">
+              <div id="sub-img-prod-preview" class="text-xs text-stone-400">📸 รูปสินค้า</div>
+              <input id="sub-img-prod" type="file" accept="image/*" capture="environment" class="hidden" />
+            </label>
+            <label class="flex-1 cursor-pointer rounded-2xl bg-stone-50 p-4 text-center ring-1 ring-stone-200">
+              <div id="sub-img-exp-preview" class="text-xs text-stone-400">📸 รูปวันหมดอายุ</div>
+              <input id="sub-img-exp" type="file" accept="image/*" capture="environment" class="hidden" />
+            </label>
+          </div>
+          <button type="submit" class="w-full rounded-2xl bg-brand-600 py-4 text-lg font-bold text-white shadow-lg">ส่งคำขอ</button>
+        </form>
+      </div>
+    </div>
+  `);
+  
+  let prodImg = existing ? existing.imageUrl : '';
+  let expImg = '';
+  if (existing) document.getElementById('sub-img-prod-preview').innerHTML = `<img src="${existing.imageUrl}" class="h-12 w-full object-cover rounded-lg" />`;
+
+  document.getElementById('sub-img-prod').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      prodImg = await compressImageFile(file);
+      document.getElementById('sub-img-prod-preview').innerHTML = `<img src="${prodImg}" class="h-12 w-full object-cover rounded-lg" />`;
+    }
+  });
+  document.getElementById('sub-img-exp').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      expImg = await compressImageFile(file);
+      document.getElementById('sub-img-exp-preview').innerHTML = `<img src="${expImg}" class="h-12 w-full object-cover rounded-lg" />`;
+    }
+  });
+
+  document.getElementById('submission-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = document.getElementById('sub-name').value.trim();
+    const bc = document.getElementById('sub-barcode').value.trim();
+    const date = document.querySelector('.sub-date-input').value;
+    
+    if (!name || !date || !prodImg || !expImg) return alert('กรุณากรอกข้อมูลและถ่ายรูปให้ครบถ้วน');
+    
+    const uploadedProd = await uploadImageToStorage(prodImg, 'products');
+    const uploadedExp = await uploadImageToStorage(expImg, 'expiry-photos');
+    
+    pendingSubmissions.push({
+      id: Date.now(), barcode: bc, name, expiryDate: date,
+      imageUrl: uploadedProd, expiryPhoto: uploadedExp,
+      submittedAt: new Date().toISOString(), submittedBy: state.staffCode
+    });
+    
+    await savePending(pendingSubmissions);
+    closeModal();
+    showToast('✅ ส่งคำขอเรียบร้อยแล้ว');
+    renderPage();
+  });
+}
+
+function openProductForm(productId = null, prefillBarcode = '') {
+  const p = productId ? products.find(x => x.id === productId) : null;
+  openModal(`
+    <div class="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center" onclick="if(event.target===this) closeModal()">
+      <div class="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl overflow-y-auto max-h-[90vh]">
+        <h3 class="text-xl font-bold text-stone-800">${p ? 'แก้ไขสินค้า' : 'เพิ่มสินค้าโดยตรง'}</h3>
+        <form id="dev-product-form" class="mt-4 space-y-4">
+          <input id="dev-form-name" placeholder="ชื่อสินค้า *" value="${p ? escapeHtml(p.name) : ''}" required class="w-full rounded-2xl border border-stone-200 px-4 py-3 text-sm font-bold" />
+          <input id="dev-form-barcode" placeholder="บาร์โค้ด" value="${p ? escapeHtml(p.barcode) : prefillBarcode}" class="w-full rounded-2xl border border-stone-200 px-4 py-3 text-sm" />
+          <input id="dev-form-date" type="date" value="${p ? p.expiryDate : ''}" required class="w-full rounded-2xl border border-stone-200 px-4 py-3 text-sm" />
+          <label class="block cursor-pointer rounded-2xl bg-stone-50 p-6 text-center ring-1 ring-stone-200">
+            <div id="dev-form-img-preview" class="text-xs text-stone-400">📸 รูปสินค้า</div>
+            <input id="dev-form-img" type="file" accept="image/*" capture="environment" class="hidden" />
+          </label>
+          <button type="submit" class="w-full rounded-2xl bg-brand-600 py-4 text-lg font-bold text-white shadow-lg">บันทึกสินค้า</button>
+        </form>
+      </div>
+    </div>
+  `);
+
+  let img = p ? p.imageUrl : '';
+  if (img) document.getElementById('dev-form-img-preview').innerHTML = `<img src="${img}" class="h-20 w-full object-cover rounded-lg" />`;
+
+  document.getElementById('dev-form-img').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      img = await compressImageFile(file);
+      document.getElementById('dev-form-img-preview').innerHTML = `<img src="${img}" class="h-20 w-full object-cover rounded-lg" />`;
+    }
+  });
+
+  document.getElementById('dev-product-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = document.getElementById('dev-form-name').value.trim();
+    const bc = document.getElementById('dev-form-barcode').value.trim();
+    const date = document.getElementById('dev-form-date').value;
+    
+    if (!name || !date) return alert('กรุณากรอกชื่อและวันหมดอายุ');
+    
+    const uploadedImg = await uploadImageToStorage(img, 'products');
+    
+    if (p) {
+      const idx = products.findIndex(x => x.id === productId);
+      products[idx] = { ...products[idx], name, barcode: bc, expiryDate: date, imageUrl: uploadedImg };
+    } else {
+      const newId = products.length > 0 ? Math.max(...products.map(x => x.id)) + 1 : 1;
+      products.push({
+        id: newId, barcode: bc, name, category: '',
+        imageUrl: uploadedImg, expiryDate: date,
+        addedDate: new Date().toISOString(), addedBy: state.staffCode
+      });
+    }
+    
+    await saveProducts(products);
+    closeModal();
+    showToast('✅ บันทึกสินค้าสำเร็จ');
+    renderPage();
+  });
+}
+
+function viewProductDetail(id) {
+  const p = products.map(withComputed).find(x => x.id === id);
+  if (!p) return;
+  openModal(`
+    <div class="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center" onclick="if(event.target===this) closeModal()">
+      <div class="w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl">
+        <div class="relative h-64 w-full bg-stone-100">
+          ${p.imageUrl ? `<img src="${p.imageUrl}" class="h-full w-full object-cover" />` : `<div class="flex h-full w-full items-center justify-center text-6xl">📦</div>`}
+          <button onclick="closeModal()" class="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-black/20 text-white">✕</button>
+        </div>
+        <div class="p-6">
+          <div class="flex items-start justify-between">
+            <div>
+              <h3 class="text-xl font-bold text-stone-800">${escapeHtml(p.name)}</h3>
+              <p class="text-sm text-stone-400">${escapeHtml(p.barcode)}</p>
+            </div>
+            ${statusBadgeHTML(p.status)}
+          </div>
+          <div class="mt-6 grid grid-cols-2 gap-4">
+            <div class="rounded-2xl bg-stone-50 p-4">
+              <p class="text-[10px] font-bold text-stone-400 uppercase">วันหมดอายุ</p>
+              <p class="mt-1 text-sm font-bold text-stone-700">${formatThaiDate(p.expiryDate)}</p>
+            </div>
+            <div class="rounded-2xl bg-stone-50 p-4">
+              <p class="text-[10px] font-bold text-stone-400 uppercase">สถานะ</p>
+              <p class="mt-1 text-sm font-bold" style="color:${STATUS_COLOR[p.status]}">${STATUS_LABEL_TH[p.status]}</p>
+            </div>
+          </div>
+          ${isAdmin() ? `
+          <div class="mt-6 flex gap-3">
+            <button onclick="closeModal(); openProductForm(${p.id})" class="flex-1 rounded-xl bg-brand-50 py-3 text-sm font-bold text-brand-700">แก้ไข</button>
+            <button onclick="closeModal(); confirmDeleteProduct(${p.id})" class="flex-1 rounded-xl bg-red-50 py-3 text-sm font-bold text-red-600">ลบ</button>
+          </div>` : ''}
+        </div>
+      </div>
+    </div>
+  `);
+}
+
+// ==================== Utilities ====================
+function computeStats() {
+  const active = products.map(withComputed).filter(p => !p.removed);
+  return {
+    expired: active.filter(p => p.status === 'expired').length,
+    urgent: active.filter(p => p.status === 'urgent').length,
+    safe: active.filter(p => p.status === 'safe').length
+  };
+}
+
+async function compressImageFile(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width, height = img.height;
+        if (width > 800) { height *= 800 / width; width = 800; }
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function showToast(msg) {
+  const root = document.getElementById('toast-root');
+  const el = document.createElement('div');
+  el.className = 'fixed bottom-24 left-1/2 z-[100] -translate-x-1/2 rounded-full bg-stone-800/90 px-6 py-3 text-xs font-bold text-white shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-4 duration-300';
+  el.textContent = msg;
+  root.appendChild(el);
+  setTimeout(() => {
+    el.classList.add('animate-out', 'fade-out', 'slide-out-to-bottom-4');
+    setTimeout(() => el.remove(), 300);
+  }, 3000);
+}
+
+function showAlertModal(msg) {
+  openModal(`
+    <div class="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-6" onclick="closeModal()">
+      <div class="w-full max-w-xs rounded-3xl bg-white p-6 shadow-2xl text-center">
+        <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-red-500 text-xl">⚠️</div>
+        <p class="text-sm font-bold text-stone-800">${msg.replace(/\n/g, '<br/>')}</p>
+        <button onclick="closeModal()" class="mt-6 w-full rounded-2xl bg-stone-100 py-3 text-sm font-bold text-stone-600">ตกลง</button>
+      </div>
+    </div>
+  `);
+}
+
+function playBeep() { try { new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YV9vT19W').play(); } catch {} }
+
+async function refreshFromCloud() {
+  try {
+    state.realtimeStatus.products = 'connecting'; renderPage();
+    products = await fetchProductsFromCloud();
+    pendingSubmissions = await fetchPendingFromCloud();
+    adminCreds = await fetchAdminCredsFromCloud();
+    state.realtimeStatus.products = 'connected';
+    showToast('✅ อัปเดตข้อมูลล่าสุดแล้ว');
+  } catch (err) {
+    state.realtimeStatus.products = 'error';
+    showToast('❌ รีเฟรชไม่สำเร็จ');
+  } finally {
+    renderPage();
+  }
+}
+
+// ==================== Init ====================
+(async function init() {
+  const savedStaff = getSavedStaffCode();
+  if (savedStaff) state.staffCode = savedStaff;
+  
+  try {
+    await refreshFromCloud();
+  } catch (e) {
+    console.error('Initial fetch failed', e);
+  }
+  renderPage();
+})();
+
+</script>
+</body>
+</html>
