@@ -1,0 +1,2016 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+<meta name="theme-color" content="#2B6B3D" />
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='rgb(31,82,48)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5.5 9h13l-1.4 9.3a2 2 0 0 1-2 1.7H8.9a2 2 0 0 1-2-1.7L5.5 9Z'/%3E%3Cpath d='M9 9V6.5a3 3 0 0 1 6 0V9'/%3E%3Cpath d='M9.5 13v3.2'/%3E%3Cpath d='M12 13v3.2'/%3E%3Cpath d='M14.5 13v3.2'/%3E%3C/svg%3E" />
+<title>Rimping Expiry Tracker (AI)</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          brand: {
+            50: '#eef6f0', 100: '#daeadd', 200: '#b3d2bc', 300: '#87b595',
+            400: '#5c9a6c', 500: '#3d7d4d', 600: '#2b6b3d', 700: '#1f5230',
+            800: '#163c23', 900: '#0e2716',
+          },
+        },
+        fontFamily: { sans: ['"Noto Sans Thai"', '"Inter"', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+        boxShadow: { card: '0 1px 2px 0 rgba(14,39,22,0.08), 0 2px 10px -2px rgba(14,39,22,0.12)' },
+      },
+    },
+  };
+</script>
+
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+
+<style>
+  body { background-color: #eef6f0; -webkit-tap-highlight-color: transparent; touch-action: manipulation; overscroll-behavior-y: contain; }
+  html { touch-action: manipulation; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  #qr-reader video { border-radius: 1rem; object-fit: cover; width: 100% !important; height: 100% !important; }
+
+  #print-area { display: none; }
+  #print-area table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  #print-area th, #print-area td { border: 1px solid #ccc; padding: 4px 8px; text-align: left; }
+  #print-area h2 { margin-bottom: 4px; font-size: 16px; }
+  #print-area p { margin-bottom: 12px; color: #555; font-size: 12px; }
+
+  @media print {
+    #app, #modal-root { display: none !important; }
+    #print-area { display: block !important; padding: 24px; }
+  }
+  
+  .autocomplete-items {
+    position: absolute;
+    border: 1px solid #d4d4d4;
+    border-bottom: none;
+    border-top: none;
+    z-index: 99;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 200px;
+    overflow-y: auto;
+    border-radius: 0 0 1rem 1rem;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  }
+  .autocomplete-items div {
+    padding: 10px;
+    cursor: pointer;
+    background-color: #fff;
+    border-bottom: 1px solid #d4d4d4;
+  }
+  .autocomplete-items div:hover {
+    background-color: #e9e9e9;
+  }
+  .autocomplete-active {
+    background-color: #2b6b3d !important;
+    color: #ffffff;
+  }
+</style>
+</head>
+<body class="font-sans text-stone-800">
+
+<div id="app"></div>
+<div id="modal-root"></div>
+<div id="toast-root"></div>
+<div id="print-area"></div>
+
+<script>
+'use strict';
+
+// ==================== Constants ====================
+const ADMIN_ID_DEFAULT = '63042';
+const ADMIN_PIN_DEFAULT = '0898';
+// (เดิมเก็บรหัสแอดมินด้วยคีย์นี้ใน localStorage ตอนนี้ย้ายไปเก็บใน Supabase แล้ว เพื่อให้ทุกเครื่องใช้รหัสเดียวกัน)
+const URGENT_WINDOW_DAYS = 7;
+// (เดิมเก็บใน localStorage ด้วยคีย์เหล่านี้ ตอนนี้ย้ายไปเก็บใน Supabase แล้ว)
+
+const STATUS_LABEL_TH = { expired: 'หมดอายุแล้ว', urgent: 'เร่งด่วน', safe: 'ปลอดภัย' };
+const STATUS_COLOR = { expired: '#dc2626', urgent: '#d97706', safe: '#2b6b3d' };
+
+const WEEKDAYS_TH = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
+const MONTHS_TH = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+
+const NAV_ITEMS = [
+  { id: 'dashboard', label: 'หน้าแรก', emoji: '🏠' },
+  { id: 'scanner', label: 'สแกน', emoji: '📷' },
+  { id: 'calendar', label: 'ปฏิทิน', emoji: '🗓️' },
+  { id: 'admin', label: 'AI ตรวจสอบ', emoji: '🤖' },
+];
+
+const FILTER_CHIPS = [
+  { id: 'all', label: 'ทั้งหมด' },
+  { id: 'expired', label: '🔴 หมดอายุแล้ว' },
+  { id: 'urgent', label: '🟡 เร่งด่วน' },
+  { id: 'safe', label: '🟢 ปลอดภัย' },
+];
+
+// ==================== State ====================
+const state = {
+  entered: false,
+  isAdminSession: false,
+  tab: 'dashboard',
+  search: '',
+  filter: 'all',
+  cal: { year: new Date().getFullYear(), month: new Date().getMonth() + 1, selected: null },
+  scanner: { scannedCode: null },
+  staffCode: '',
+  realtimeStatus: { products: 'connecting', pending: 'connecting', admincreds: 'connecting' },
+};
+
+// รหัส/ชื่อพนักงานที่ใช้เครื่องนี้ (เก็บไว้ในเครื่องเดียว ไม่ต้องล็อกอินจริง แค่ติดป้ายว่าใครทำรายการ)
+const STAFF_CODE_KEY = 'rimping_staff_code_v1';
+function getSavedStaffCode() {
+  try { return localStorage.getItem(STAFF_CODE_KEY) || ''; } catch { return ''; }
+}
+function saveStaffCode(code) {
+  try { localStorage.setItem(STAFF_CODE_KEY, code); } catch {}
+}
+
+let html5QrCode = null;
+let pendingLoginSuccess = null;
+let pendingRestoreProducts = null;
+
+// ==================== Supabase (เก็บข้อมูล "สินค้า" และ "คำขอรอตรวจสอบ" ในคลาวด์ แทน localStorage) ====================
+const SUPABASE_URL = 'https://ndipoaxxbqwxafgvgmlu.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_HAHfwDUD3x68d-w7JQYbFw_WhVfvBta';
+const PRODUCTS_TABLE = 'expiry_products';
+const PENDING_TABLE = 'expiry_pending_submissions';
+const IMAGES_BUCKET = 'expiry-images';
+const sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+function rowToProduct(row) {
+  return {
+    id: row.id,
+    barcode: row.barcode || '',
+    name: row.name || '',
+    category: row.category || '',
+    imageUrl: row.image_url || '',
+    expiryDate: row.expiry_date || '',
+    notes: row.notes || '',
+    addedDate: row.added_date || '',
+    addedBy: row.added_by || '',
+    removed: !!row.removed,
+    removedDate: row.removed_date || null,
+    removedBy: row.removed_by || '',
+  };
+}
+function productToRow(p) {
+  return {
+    id: p.id,
+    barcode: p.barcode || '',
+    name: p.name || '',
+    category: p.category || '',
+    image_url: p.imageUrl || '',
+    expiry_date: p.expiryDate,
+    notes: p.notes || '',
+    added_date: p.addedDate || new Date().toISOString(),
+    added_by: p.addedBy || '',
+    removed: !!p.removed,
+    removed_date: p.removedDate || null,
+    removed_by: p.removedBy || '',
+  };
+}
+function rowToPending(row) {
+  return {
+    id: row.id,
+    barcode: row.barcode || '',
+    name: row.name || '',
+    expiryDate: row.expiry_date || '',
+    imageUrl: row.image_url || '',
+    expiryPhoto: row.expiry_photo || '',
+    submittedAt: row.submitted_at || '',
+    submittedBy: row.submitted_by || '',
+  };
+}
+function pendingToRow(p) {
+  return {
+    id: p.id,
+    barcode: p.barcode || '',
+    name: p.name || '',
+    expiry_date: p.expiryDate,
+    image_url: p.imageUrl || '',
+    expiry_photo: p.expiryPhoto || '',
+    submitted_at: p.submittedAt || new Date().toISOString(),
+    submitted_by: p.submittedBy || '',
+  };
+}
+
+// อัปโหลดรูป (data: base64) ขึ้น Supabase Storage แล้วคืน URL สาธารณะ
+// ถ้าค่าที่ส่งมาเป็น URL อยู่แล้ว (เช่น รูปเดิมที่อัปโหลดไปแล้ว) จะส่งคืนค่าเดิมโดยไม่อัปโหลดซ้ำ
+async function uploadImageToStorage(dataUrl, prefix) {
+  if (!dataUrl || !dataUrl.startsWith('data:')) return dataUrl || '';
+  if (!sb) return dataUrl;
+  try {
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+    const path = `${prefix}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+    const { error: uploadError } = await sb.storage.from(IMAGES_BUCKET).upload(path, blob, { contentType: 'image/jpeg', upsert: true });
+    if (uploadError) { console.error('uploadImageToStorage failed:', uploadError); return dataUrl; }
+    const { data } = sb.storage.from(IMAGES_BUCKET).getPublicUrl(path);
+    return data.publicUrl;
+  } catch (err) {
+    console.error('uploadImageToStorage failed:', err);
+    return dataUrl;
+  }
+}
+
+async function fetchProductsFromCloud() {
+  if (!sb) throw new Error('ไม่พบไลบรารี Supabase');
+  const { data, error } = await sb.from(PRODUCTS_TABLE).select('*').order('expiry_date', { ascending: true });
+  if (error) throw error;
+  return (data || []).map(rowToProduct);
+}
+async function fetchPendingFromCloud() {
+  if (!sb) throw new Error('ไม่พบไลบรารี Supabase');
+  const { data, error } = await sb.from(PENDING_TABLE).select('*').order('submitted_at', { ascending: false });
+  if (error) throw error;
+  return (data || []).map(rowToPending);
+}
+
+// บันทึก "สินค้าทั้งหมด" ขึ้น Supabase: ลบแถวที่ไม่มีใน list ออก แล้ว upsert ของที่เหลือทั้งหมด
+// (ทำแบบนี้เพื่อให้ข้อมูลในคลาวด์ตรงกับในเครื่องเสมอ ไม่ว่าจะเพิ่ม/แก้ไข/ลบ จากจุดไหนก็ตาม)
+async function saveProducts(list) {
+  if (!sb) return false;
+  try {
+    const ids = list.map((p) => p.id);
+    if (ids.length > 0) {
+      const { error: delError } = await sb.from(PRODUCTS_TABLE).delete().not('id', 'in', `(${ids.join(',')})`);
+      if (delError) throw delError;
+    } else {
+      const { error: delAllError } = await sb.from(PRODUCTS_TABLE).delete().gte('id', 0);
+      if (delAllError) throw delAllError;
+    }
+    if (list.length > 0) {
+      const rows = list.map(productToRow);
+      const { error: upsertError } = await sb.from(PRODUCTS_TABLE).upsert(rows, { onConflict: 'id' });
+      if (upsertError) throw upsertError;
+    }
+    return true;
+  } catch (err) {
+    console.error('saveProducts (Supabase) failed:', err);
+    return false;
+  }
+}
+
+async function savePending(list) {
+  if (!sb) return false;
+  try {
+    const ids = list.map((p) => p.id);
+    if (ids.length > 0) {
+      const { error: delError } = await sb.from(PENDING_TABLE).delete().not('id', 'in', `(${ids.join(',')})`);
+      if (delError) throw delError;
+    } else {
+      const { error: delAllError } = await sb.from(PENDING_TABLE).delete().gte('id', 0);
+      if (delAllError) throw delAllError;
+    }
+    if (list.length > 0) {
+      const rows = list.map(pendingToRow);
+      const { error: upsertError } = await sb.from(PENDING_TABLE).upsert(rows, { onConflict: 'id' });
+      if (upsertError) throw upsertError;
+    }
+    return true;
+  } catch (err) {
+    console.error('savePending (Supabase) failed:', err);
+    return false;
+  }
+}
+
+function isAdmin() { return state.isAdminSession === true; }
+function setAdmin(value) { state.isAdminSession = !!value; }
+
+// รหัสเข้าระบบแอดมิน เก็บใน Supabase (แถวเดียว id=1) เพื่อให้ทุกเครื่องใช้รหัสเดียวกัน เปลี่ยนที่ไหนก็เปลี่ยนหมด
+const ADMIN_CREDS_TABLE = 'expiry_admin_creds';
+async function fetchAdminCredsFromCloud() {
+  if (!sb) return { id: ADMIN_ID_DEFAULT, pin: ADMIN_PIN_DEFAULT };
+  const { data, error } = await sb.from(ADMIN_CREDS_TABLE).select('*').eq('id', 1).maybeSingle();
+  if (error || !data) return { id: ADMIN_ID_DEFAULT, pin: ADMIN_PIN_DEFAULT };
+  return { id: data.admin_id || ADMIN_ID_DEFAULT, pin: data.pin || ADMIN_PIN_DEFAULT };
+}
+async function saveAdminCreds(creds) {
+  if (!sb) return false;
+  try {
+    const { error } = await sb.from(ADMIN_CREDS_TABLE).upsert(
+      { id: 1, admin_id: creds.id, pin: creds.pin, updated_at: new Date().toISOString() },
+      { onConflict: 'id' },
+    );
+    if (error) throw error;
+    return true;
+  } catch (err) {
+    console.error('saveAdminCreds failed:', err);
+    return false;
+  }
+}
+let adminCreds = { id: ADMIN_ID_DEFAULT, pin: ADMIN_PIN_DEFAULT };
+
+async function saveProductsOrWarn() {
+  const ok = await saveProducts(products);
+  if (!ok) {
+    showAlertModal('บันทึกขึ้น Supabase ไม่สำเร็จ\n\nกรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต แล้วลองใหม่อีกครั้ง ถ้ายังไม่ได้ให้กดปุ่ม "💾 สำรอง" เพื่อดาวน์โหลดข้อมูลเก็บไว้ก่อนค่ะ');
+  }
+  return ok;
+}
+
+let products = [];
+let pendingSubmissions = [];
+
+// ==================== Domain helpers ====================
+function getStatus(expiryDateStr) {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const exp = new Date(expiryDateStr + 'T00:00:00');
+  const diffDays = Math.ceil((exp - today) / 86400000);
+  if (diffDays < 0) return 'expired';
+  if (diffDays <= URGENT_WINDOW_DAYS) return 'urgent';
+  return 'safe';
+}
+function daysUntil(expiryDateStr) {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const exp = new Date(expiryDateStr + 'T00:00:00');
+  return Math.ceil((exp - today) / 86400000);
+}
+function withComputed(p) { return { ...p, status: getStatus(p.expiryDate), daysLeft: daysUntil(p.expiryDate) }; }
+function formatThaiDate(dateStr) {
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+function computeStats() {
+  const counts = { expired: 0, urgent: 0, safe: 0 };
+  products.filter((p) => !p.removed).forEach((p) => counts[getStatus(p.expiryDate)]++);
+  return counts;
+}
+
+function detectBarcodeType(raw) {
+  const code = (raw ?? '').trim();
+  if (/^\d{13}$/.test(code)) return 'EAN-13';
+  if (/^\d{12}$/.test(code)) return 'UPC-A';
+  if (/^\d{8}$/.test(code)) return 'EAN-8';
+  if (/^[A-Za-z0-9]{4,}$/.test(code) && /[A-Za-z]/.test(code)) return 'CODE128';
+  if (code.length >= 4) return 'CUSTOM';
+  return 'INVALID';
+}
+function isValidBarcode(code) { return detectBarcodeType(code) !== 'INVALID'; }
+const BARCODE_TYPE_LABEL_TH = {
+  'EAN-13': 'EAN-13 (13 หลัก)', 'EAN-8': 'EAN-8 (8 หลัก)', 'UPC-A': 'UPC-A (12 หลัก)',
+  CODE128: 'Code128', CUSTOM: 'บาร์โค้ดกำหนดเอง', INVALID: 'รูปแบบไม่ถูกต้อง',
+};
+
+function escapeHtml(str) {
+  return String(str ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// บีบอัด/ย่อขนาดรูปก่อนแปลงเป็น base64 เพื่อไม่ให้ localStorage เต็มเร็วเกินไป
+// (รูปถ่ายจากกล้องมือถือตรงๆ อาจมีขนาด 3-8MB ต่อรูป ถ้าไม่ย่อจะทำให้บันทึกข้อมูลไม่ได้)
+function compressImageFile(file, maxDim = 1000, quality = 0.7) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width >= height) { height = Math.round(height * (maxDim / width)); width = maxDim; }
+          else { width = Math.round(width * (maxDim / height)); height = maxDim; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        try { resolve(canvas.toDataURL('image/jpeg', quality)); }
+        catch { resolve(String(reader.result)); }
+      };
+      img.onerror = () => resolve(String(reader.result));
+      img.src = String(reader.result);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// แจ้งเตือนแบบไม่บังหน้าจอ ปิดเองอัตโนมัติ ไม่ต้องกดตกลง
+let toastTimer = null;
+function showToast(message) {
+  const root = document.getElementById('toast-root');
+  if (!root) return;
+  root.innerHTML = `
+    <div class="pointer-events-none fixed inset-x-0 bottom-28 z-[60] flex justify-center px-4">
+      <div class="pointer-events-auto max-w-sm rounded-2xl bg-stone-800/95 px-4 py-3 text-center text-sm font-semibold text-white shadow-xl">${escapeHtml(message)}</div>
+    </div>`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { root.innerHTML = ''; }, 2500);
+}
+
+function playBeep() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 1046;
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.13);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(); osc.stop(ctx.currentTime + 0.14);
+    osc.onended = () => ctx.close();
+  } catch { /* เบราว์เซอร์บล็อก autoplay เสียง - ไม่ต้องทำอะไร */ }
+}
+
+// ==================== Shared UI pieces ====================
+function basketFilledSVG(size, color) {
+  size = size || 24; color = color || '#1f5230';
+  return `
+    <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="${color}">
+      <path d="M5.5 9h13l-1.4 9.3a2 2 0 0 1-2 1.7H8.9a2 2 0 0 1-2-1.7L5.5 9Z" />
+      <path d="M9 9V6.5a3 3 0 0 1 6 0V9h-1.6V6.5a1.4 1.4 0 0 0-2.8 0V9H9Z" />
+    </svg>`;
+}
+
+function freshnessRingSVG(daysLeft, status, size) {
+  size = size || 64;
+  const stroke = 6;
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const ratio = status === 'expired' ? 0 : Math.min(Math.max(daysLeft, 0), 30) / 30;
+  const dashOffset = circumference * (1 - ratio);
+  const color = STATUS_COLOR[status];
+  const c = size / 2;
+  return `
+    <div class="relative shrink-0" style="width:${size}px;height:${size}px;">
+      <svg width="${size}" height="${size}" class="-rotate-90">
+        <circle cx="${c}" cy="${c}" r="${radius}" stroke="#daeadd" stroke-width="${stroke}" fill="none" />
+        <circle cx="${c}" cy="${c}" r="${radius}" stroke="${color}" stroke-width="${stroke}" fill="none"
+          stroke-dasharray="${circumference}" stroke-dashoffset="${dashOffset}" stroke-linecap="round"
+          style="transition: stroke-dashoffset .4s ease;" />
+      </svg>
+      <div class="absolute inset-0 flex flex-col items-center justify-center">
+        <span class="text-xl font-extrabold leading-none" style="color:${color}">${status === 'expired' ? '!' : daysLeft}</span>
+        ${status !== 'expired' ? '<span class="text-[10px] font-semibold text-stone-500">วัน</span>' : ''}
+      </div>
+    </div>`;
+}
+
+function statusBadgeHTML(status) {
+  const styles = {
+    expired: 'bg-red-50 text-red-600 ring-1 ring-red-200',
+    urgent: 'bg-amber-50 text-amber-600 ring-1 ring-amber-200',
+    safe: 'bg-brand-50 text-brand-700 ring-1 ring-brand-200',
+  };
+  return `<span class="rounded-full px-2.5 py-0.5 text-xs font-semibold ${styles[status]}">${STATUS_LABEL_TH[status]}</span>`;
+}
+
+function productThumbHTML(p, size) {
+  size = size || 64;
+  if (p.imageUrl) {
+    const badgeText = p.status === 'expired' ? 'หมดอายุ' : `${p.daysLeft} วัน`;
+    return `
+      <div class="relative shrink-0" style="width:${size}px;height:${size}px;">
+        <img src="${p.imageUrl}" class="h-full w-full rounded-2xl object-cover ring-1 ring-brand-100" />
+        <span class="absolute -bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border-2 border-white px-2 py-0.5 text-[10px] font-extrabold text-white shadow-sm" style="background-color:${STATUS_COLOR[p.status]}">${badgeText}</span>
+      </div>`;
+  }
+  return freshnessRingSVG(p.daysLeft, p.status, size);
+}
+
+function statCardHTML(label, count, colorClass, active, onclickAttr) {
+  return `
+    <button onclick="${onclickAttr}" class="flex flex-1 flex-col items-start gap-1 rounded-2xl px-3 py-3 text-left ring-1 transition-all ${colorClass} ${active ? 'scale-[1.02] shadow-card ring-2' : 'ring-1'}">
+      <span class="text-2xl font-bold leading-none">${count}</span>
+      <span class="text-xs font-medium opacity-80">${label}</span>
+    </button>`;
+}
+
+function productCardHTML(p, opts) {
+  opts = opts || {};
+  const showActions = !!opts.showActions;
+  const showRemoveAction = !!opts.showRemoveAction;
+  return `
+    <div class="flex items-center gap-3 rounded-2xl bg-white p-3 shadow-card ring-1 ring-brand-100/60 cursor-pointer active:bg-stone-50" onclick="viewProductDetail(${p.id})">
+      ${productThumbHTML(p)}
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center justify-between gap-2">
+          <p class="truncate text-sm font-semibold text-stone-800">${escapeHtml(p.name)}</p>
+          ${statusBadgeHTML(p.status)}
+        </div>
+        <p class="mt-0.5 truncate text-xs text-stone-400">${escapeHtml(p.barcode)}</p>
+        <p class="mt-1 text-xs text-stone-500">หมดอายุ ${formatThaiDate(p.expiryDate)}</p>
+      </div>
+      ${showActions ? `
+        <div class="flex shrink-0 flex-col gap-1.5" onclick="event.stopPropagation()">
+          <button onclick="openProductForm(${p.id})" class="rounded-full bg-brand-50 p-1.5 text-brand-700 active:scale-95" aria-label="แก้ไข">✏️</button>
+          <button onclick="confirmDeleteProduct(${p.id})" class="rounded-full bg-red-50 p-1.5 text-red-600 active:scale-95" aria-label="ลบ">🗑️</button>
+        </div>` : ''}
+      ${showRemoveAction ? `
+        <button onclick="event.stopPropagation(); markRemovedConfirm(${p.id})" class="shrink-0 rounded-xl bg-stone-100 px-2.5 py-2 text-center text-[10px] font-bold leading-tight text-stone-600 active:scale-95" aria-label="เก็บออกแล้ว">📦<br/>เก็บออก</button>` : ''}
+    </div>`;
+}
+
+function viewProductDetail(id) {
+  const p = products.map(withComputed).find(x => x.id === id);
+  if (!p) return;
+  
+  openModal(`
+    <div class="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center" onclick="if(event.target===this) closeModal()">
+      <div class="w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl animate-in slide-in-from-bottom duration-300">
+        <div class="relative h-64 w-full bg-stone-100">
+          ${p.imageUrl 
+            ? `<img src="${p.imageUrl}" class="h-full w-full object-cover" />` 
+            : `<div class="flex h-full w-full items-center justify-center text-6xl">📦</div>`}
+          <button onclick="closeModal()" class="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-black/20 text-white backdrop-blur-sm">✕</button>
+        </div>
+        <div class="p-6">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <h3 class="text-xl font-bold text-stone-800">${escapeHtml(p.name)}</h3>
+              <p class="text-sm text-stone-400">${escapeHtml(p.barcode)}</p>
+            </div>
+            ${statusBadgeHTML(p.status)}
+          </div>
+          <div class="mt-6 grid grid-cols-2 gap-4">
+            <div class="rounded-2xl bg-stone-50 p-4">
+              <p class="text-[10px] font-bold uppercase tracking-wider text-stone-400">วันหมดอายุ</p>
+              <p class="mt-1 text-sm font-bold text-stone-700">${formatThaiDate(p.expiryDate)}</p>
+            </div>
+            <div class="rounded-2xl bg-stone-50 p-4">
+              <p class="text-[10px] font-bold uppercase tracking-wider text-stone-400">สถานะ</p>
+              <p class="mt-1 text-sm font-bold" style="color:${STATUS_COLOR[p.status]}">${STATUS_LABEL_TH[p.status]}</p>
+            </div>
+          </div>
+          ${p.addedBy ? `<p class="mt-3 text-[11px] text-stone-400">🧑‍💼 เพิ่มเข้าระบบโดย: <span class="font-semibold text-stone-500">${escapeHtml(p.addedBy)}</span></p>` : ''}
+          ${isAdmin() ? `
+          <div class="mt-6 flex gap-3">
+            <button onclick="closeModal(); openProductForm(${p.id})" class="flex-1 rounded-xl bg-brand-50 py-3 text-sm font-bold text-brand-700 ring-1 ring-brand-200">แก้ไขข้อมูล</button>
+            <button onclick="closeModal(); confirmDeleteProduct(${p.id})" class="flex-1 rounded-xl bg-red-50 py-3 text-sm font-bold text-red-600 ring-1 ring-red-200">ลบรายการ</button>
+          </div>
+          ` : ''}
+        </div>
+      </div>
+    </div>
+  `);
+}
+
+// ==================== Autocomplete ====================
+function setupAutocomplete(inp, arr, onSelect) {
+  let currentFocus;
+  inp.addEventListener("input", function(e) {
+      let a, b, i, val = this.value;
+      closeAllLists();
+      if (!val) { return false;}
+      currentFocus = -1;
+      a = document.getElementById("autocomplete-list");
+      const uniqueArr = [...new Set(arr)];
+      let count = 0;
+      for (i = 0; i < uniqueArr.length; i++) {
+        if (uniqueArr[i].toUpperCase().includes(val.toUpperCase())) {
+          b = document.createElement("DIV");
+          b.innerHTML = "<strong>" + uniqueArr[i].substr(0, val.length) + "</strong>";
+          b.innerHTML += uniqueArr[i].substr(val.length);
+          b.innerHTML += "<input type='hidden' value='" + uniqueArr[i] + "'>";
+          b.addEventListener("click", function(e) {
+              const selectedValue = this.getElementsByTagName("input")[0].value;
+              inp.value = selectedValue;
+              closeAllLists();
+              if (typeof onSelect === 'function') onSelect(selectedValue);
+          });
+          a.appendChild(b);
+          count++;
+          if (count >= 5) break;
+        }
+      }
+  });
+  inp.addEventListener("keydown", function(e) {
+      let x = document.getElementById("autocomplete-list");
+      if (x) x = x.getElementsByTagName("div");
+      if (e.keyCode == 40) {
+        currentFocus++;
+        addActive(x);
+      } else if (e.keyCode == 38) {
+        currentFocus--;
+        addActive(x);
+      } else if (e.keyCode == 13) {
+        e.preventDefault();
+        if (currentFocus > -1) {
+          if (x) x[currentFocus].click();
+        }
+      }
+  });
+  function addActive(x) {
+    if (!x) return false;
+    removeActive(x);
+    if (currentFocus >= x.length) currentFocus = 0;
+    if (currentFocus < 0) currentFocus = (x.length - 1);
+    x[currentFocus].classList.add("autocomplete-active");
+  }
+  function removeActive(x) {
+    for (let i = 0; i < x.length; i++) {
+      x[i].classList.remove("autocomplete-active");
+    }
+  }
+  function closeAllLists(elmnt) {
+    const x = document.getElementsByClassName("autocomplete-items");
+    for (let i = 0; i < x.length; i++) {
+      if (elmnt != x[i] && elmnt != inp) {
+        x[i].innerHTML = '';
+      }
+    }
+  }
+  document.addEventListener("click", function (e) {
+      closeAllLists(e.target);
+  });
+}
+
+// ==================== App Navigation ====================
+function renderPage() {
+  const app = document.getElementById('app');
+  let content = '';
+  
+  switch (state.tab) {
+    case 'dashboard': content = dashboardHTML(); break;
+    case 'scanner': content = scannerHTML(); break;
+    case 'calendar': content = calendarHTML(); break;
+    case 'admin': content = adminHTML(); break;
+  }
+  
+  app.innerHTML = `
+    <div class="mx-auto min-h-screen max-w-md pb-24 pt-6 px-4">
+      ${content}
+      <nav class="fixed bottom-0 left-0 right-0 z-40 flex justify-center pb-safe">
+        <div class="mb-4 flex w-[90%] max-w-sm items-center justify-around rounded-3xl bg-white/80 p-2 shadow-2xl ring-1 ring-brand-100/50 backdrop-blur-xl">
+          ${NAV_ITEMS.map((item) => `
+            <button onclick="switchTab('${item.id}')" class="flex flex-col items-center gap-1 px-3 py-2 transition-all ${state.tab === item.id ? 'scale-110 text-brand-600' : 'text-stone-400 opacity-70'}">
+              <span class="text-xl">${item.emoji}</span>
+              <span class="text-[10px] font-bold uppercase tracking-wider">${item.label}</span>
+            </button>`).join('')}
+        </div>
+      </nav>
+    </div>`;
+
+  if (state.tab === 'scanner') initScanner();
+  if (state.tab === 'admin' && isAdmin()) {
+    const pendingList = document.getElementById('admin-pending-list');
+    if (pendingList) pendingList.innerHTML = adminPendingListHTML();
+    const removedList = document.getElementById('admin-removed-list');
+    if (removedList) removedList.innerHTML = adminRemovedListHTML();
+    const productList = document.getElementById('admin-product-list');
+    if (productList) productList.innerHTML = adminProductListHTML();
+  }
+}
+
+function switchTab(id) {
+  if (state.tab === 'scanner') stopScanner();
+  state.tab = id;
+  renderPage();
+}
+
+// ==================== Dashboard ====================
+function dashboardHTML() {
+  const stats = computeStats();
+  const filtered = products
+    .map(withComputed)
+    .filter((p) => !p.removed)
+    .filter((p) => {
+      const matchSearch = p.name.toLowerCase().includes(state.search.toLowerCase()) || p.barcode.includes(state.search);
+      const matchFilter = state.filter === 'all' || p.status === state.filter;
+      return matchSearch && matchFilter;
+    })
+    .sort((a, b) => a.daysLeft - b.daysLeft);
+
+  return `
+    <div class="space-y-6">
+      <header class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-600 to-brand-800 shadow-lg shadow-brand-300/40 ring-1 ring-white/10">
+            ${basketFilledSVG(28, '#ffffff')}
+          </div>
+          <div>
+            <h1 class="text-xl font-extrabold tracking-tight text-stone-800">Rimping Expiry</h1>
+            <p class="text-xs font-medium text-stone-400">ระบบติดตามวันหมดอายุ</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="refreshFromCloud()" class="rounded-full bg-white p-2 text-stone-500 shadow-sm ring-1 ring-stone-200 active:scale-95" aria-label="รีเฟรชข้อมูล">🔄</button>
+          <div class="text-right">
+            <p class="text-[10px] font-bold uppercase tracking-widest text-stone-400">วันนี้</p>
+            <p class="text-sm font-bold text-stone-700">${formatThaiDate(new Date().toISOString().slice(0, 10))}</p>
+          </div>
+        </div>
+      </header>
+
+      <div class="flex items-center justify-between gap-2">
+        ${onlineStatusBadgeHTML()}
+        <button onclick="promptChangeStaffCode()" class="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-stone-500 shadow-sm ring-1 ring-stone-200 active:scale-95">🧑‍💼 ${escapeHtml(state.staffCode || '-')}</button>
+      </div>
+
+      <div class="flex gap-3">
+        ${statCardHTML('หมดอายุ', stats.expired, 'bg-red-50 text-red-600 ring-red-100', state.filter === 'expired', "setFilter('expired')")}
+        ${statCardHTML('เร่งด่วน', stats.urgent, 'bg-amber-50 text-amber-600 ring-amber-100', state.filter === 'urgent', "setFilter('urgent')")}
+        ${statCardHTML('ปลอดภัย', stats.safe, 'bg-brand-50 text-brand-700 ring-brand-100', state.filter === 'safe', "setFilter('safe')")}
+      </div>
+
+      <div class="sticky top-2 z-30 space-y-3 rounded-3xl bg-white/60 p-2 shadow-sm ring-1 ring-brand-100/50 backdrop-blur-md">
+        <div class="relative">
+          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400">🔍</span>
+          <input 
+            type="text" 
+            placeholder="ค้นหาชื่อสินค้า หรือบาร์โค้ด..." 
+            value="${state.search}"
+            oninput="state.search = this.value; renderDashboardList()"
+            class="w-full rounded-2xl border-none bg-stone-100/50 py-3 pl-10 pr-4 text-sm outline-none ring-1 ring-stone-200/50 focus:bg-white focus:ring-2 focus:ring-brand-500/20"
+          />
+        </div>
+        <div class="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+          ${FILTER_CHIPS.map(chip => `
+            <button 
+              onclick="setFilter('${chip.id}')"
+              class="whitespace-nowrap rounded-full px-4 py-1.5 text-xs font-bold transition-all ${state.filter === chip.id ? 'bg-stone-800 text-white shadow-md' : 'bg-white text-stone-500 ring-1 ring-stone-200'}"
+            >
+              ${chip.label}
+            </button>
+          `).join('')}
+        </div>
+      </div>
+
+      <div id="dashboard-list" class="grid gap-3">
+        ${dashboardListHTML(filtered)}
+      </div>
+    </div>`;
+}
+
+function dashboardListHTML(list) {
+  if (list.length === 0) {
+    return `
+      <div class="flex flex-col items-center justify-center py-12 text-center">
+        <div class="mb-4 text-5xl">🍃</div>
+        <p class="text-sm font-bold text-stone-400">ไม่พบรายการสินค้า</p>
+        <button onclick="setFilter('all'); state.search=''; renderPage()" class="mt-2 text-xs font-bold text-brand-600">ล้างการค้นหา</button>
+      </div>`;
+  }
+  return list.map(p => productCardHTML(p, { showRemoveAction: true })).join('');
+}
+
+function renderDashboardList() {
+  const filtered = products
+    .map(withComputed)
+    .filter((p) => !p.removed)
+    .filter((p) => {
+      const matchSearch = p.name.toLowerCase().includes(state.search.toLowerCase()) || p.barcode.includes(state.search);
+      const matchFilter = state.filter === 'all' || p.status === state.filter;
+      return matchSearch && matchFilter;
+    })
+    .sort((a, b) => a.daysLeft - b.daysLeft);
+  document.getElementById('dashboard-list').innerHTML = dashboardListHTML(filtered);
+}
+
+function setFilter(f) {
+  state.filter = f;
+  renderPage();
+}
+
+// ==================== Scanner ====================
+function scannerHTML() {
+  return `
+    <div class="space-y-5">
+      <header class="flex items-center gap-2">
+        <span class="rounded-xl bg-gradient-to-br from-brand-600 to-brand-800 p-2 text-white text-lg shadow-sm ring-1 ring-white/10">📷</span>
+        <div>
+          <h1 class="text-lg font-bold text-stone-800">สแกนบาร์โค้ด</h1>
+          <p class="text-xs text-stone-400">สแกนเพื่อตรวจสอบหรือเพิ่มสินค้า</p>
+        </div>
+      </header>
+
+      <div class="relative aspect-[4/3] overflow-hidden rounded-3xl bg-black shadow-2xl ring-4 ring-white">
+        <div id="qr-reader" class="h-full w-full"></div>
+        <div id="camera-status" class="absolute inset-0 flex items-center justify-center bg-stone-900 text-center text-xs text-white/70">กำลังเปิดกล้อง...</div>
+        <div id="camera-frame" class="pointer-events-none absolute inset-6 rounded-xl border-2 border-brand-400 hidden"></div>
+      </div>
+
+      <button type="button" onclick="document.getElementById('scan-image-input').click()" class="flex w-full items-center justify-center gap-1.5 rounded-xl bg-white py-2.5 text-xs font-semibold text-brand-700 ring-1 ring-brand-200 active:scale-95">
+        🖼️ แทรกรูปภาพเพื่อสแกนบาร์โค้ด
+      </button>
+      <input id="scan-image-input" type="file" accept="image/*" class="hidden" onchange="handleScanImageFile(event)" />
+      <div id="file-scan-temp" class="hidden"></div>
+
+      <form id="manual-form" class="flex gap-2">
+        <input id="manual-input" placeholder="หรือพิมพ์บาร์โค้ดด้วยตนเอง" class="flex-1 rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100" />
+        <button type="submit" class="rounded-xl bg-brand-600 px-4 text-white active:scale-95">🔍</button>
+      </form>
+
+      <div id="scan-result"></div>
+      
+      <button onclick="openSubmissionModal(false, true)" class="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-50 py-3 text-sm font-semibold text-brand-700 ring-1 ring-brand-200 active:scale-95">
+        ➕ เพิ่มสินค้าด้วยตนเอง (ไม่มีบาร์โค้ด)
+      </button>
+    </div>`;
+}
+
+function initScanner() {
+  document.getElementById('manual-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const code = document.getElementById('manual-input').value.trim();
+    if (code) handleScanResult(code);
+  });
+  startScanner();
+}
+
+function handleScanImageFile(e) {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  const resultEl = document.getElementById('scan-result');
+  if (resultEl) {
+    resultEl.innerHTML = `<div class="rounded-2xl bg-white p-4 text-center text-xs text-stone-400 shadow-card ring-1 ring-brand-100/60">กำลังอ่านบาร์โค้ดจากรูปภาพ...</div>`;
+  }
+  if (!window.Html5Qrcode) {
+    if (resultEl) resultEl.innerHTML = `<p class="text-xs text-red-600">ไม่พบไลบรารีสแกน กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต</p>`;
+    return;
+  }
+  const fileScanner = new Html5Qrcode('file-scan-temp');
+  fileScanner
+    .scanFile(file, false)
+    .then((decodedText) => {
+      playBeep();
+      handleScanResult(decodedText);
+      try { fileScanner.clear(); } catch {}
+    })
+    .catch(() => {
+      if (resultEl) {
+        resultEl.innerHTML = `
+          <div class="rounded-2xl bg-white p-4 text-center shadow-card ring-1 ring-brand-100/60">
+            <p class="text-xs text-red-600">ไม่พบบาร์โค้ดในรูปภาพนี้</p>
+            <p class="mt-1 text-[11px] text-stone-400">ลองรูปอื่น หรือพิมพ์บาร์โค้ดด้วยตนเองด้านล่าง</p>
+          </div>`;
+      }
+      try { fileScanner.clear(); } catch {}
+    });
+}
+
+function startScanner() {
+  if (!window.Html5Qrcode) {
+    const statusEl = document.getElementById('camera-status');
+    if (statusEl) statusEl.textContent = 'ไม่พบไลบรารีกล้อง (ต้องต่ออินเทอร์เน็ตเพื่อโหลด html5-qrcode)';
+    return;
+  }
+  html5QrCode = new Html5Qrcode('qr-reader');
+  html5QrCode
+    .start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: { width: 250, height: 150 } },
+      (decodedText) => { playBeep(); handleScanResult(decodedText); },
+      () => { /* ไม่เจอบาร์โค้ดในเฟรมนี้ - ไม่ต้องทำอะไร */ },
+    )
+    .then(() => {
+      const statusEl = document.getElementById('camera-status');
+      if (statusEl) statusEl.remove();
+      const frame = document.getElementById('camera-frame');
+      if (frame) frame.classList.remove('hidden');
+    })
+    .catch((err) => {
+      console.error(err);
+      const statusEl = document.getElementById('camera-status');
+      if (statusEl) {
+        statusEl.innerHTML = `
+          <div class="flex flex-col items-center gap-2 px-6 text-center">
+            <span class="text-2xl">📵</span>
+            <span>ไม่สามารถเข้าถึงกล้องได้ กรุณาอนุญาตการใช้กล้อง หรือกรอกบาร์โค้ดด้วยตนเองด้านล่าง<br><span class="text-[10px] text-white/50">(กล้องต้องเปิดผ่าน HTTPS หรือ localhost)</span></span>
+          </div>`;
+      }
+    });
+}
+
+function stopScanner() {
+  if (html5QrCode) {
+    const instance = html5QrCode;
+    html5QrCode = null;
+    instance.stop().catch(() => {}).finally(() => { try { instance.clear(); } catch {} });
+  }
+}
+
+function handleScanResult(code) {
+  state.scanner.scannedCode = code;
+  const product = products.map(withComputed).find((p) => p.barcode === code) || null;
+  const type = detectBarcodeType(code);
+  const resultEl = document.getElementById('scan-result');
+  if (!resultEl) return;
+
+  const notFoundAction = `<button onclick="openSubmissionModal()" class="flex w-full items-center justify-center gap-2 rounded-xl bg-sky-600 py-2.5 text-sm font-semibold text-white active:scale-95">📋 แจ้งเพิ่มสินค้าใหม่</button>`;
+
+  const foundAction = `
+    <div class="mt-3 space-y-2">
+      <div class="h-px bg-stone-100"></div>
+      <p class="text-[10px] font-bold text-stone-400 uppercase tracking-wider">พบสินค้าในระบบแล้ว</p>
+      <button onclick="openSubmissionModal(true)" class="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 py-2.5 text-sm font-semibold text-white shadow-sm active:scale-95 transition-transform">
+        🆕 เพิ่มวันหมดอายุรอบใหม่ (ล็อตใหม่)
+      </button>
+    </div>`;
+
+  resultEl.innerHTML = `
+    <div class="space-y-3 rounded-2xl bg-white p-4 shadow-card ring-1 ring-brand-100/60">
+      <div class="flex items-center justify-between">
+        <p class="text-sm font-semibold text-stone-700">บาร์โค้ด: ${escapeHtml(code)}</p>
+        <span class="rounded-full px-2 py-0.5 text-[11px] font-semibold ${isValidBarcode(code) ? 'bg-brand-50 text-brand-700' : 'bg-red-50 text-red-600'}">${BARCODE_TYPE_LABEL_TH[type]}</span>
+      </div>
+      ${product ? (productCardHTML(product) + foundAction) : `
+        <div class="space-y-2">
+          <p class="text-xs text-stone-400">ไม่พบสินค้านี้ในระบบ</p>
+          ${notFoundAction}
+        </div>`}
+    </div>`;
+}
+
+// ==================== Public submission (pending AI approval) ====================
+function openSubmissionModal(isNewLot = false, isManual = false) {
+  const prefillBarcode = isManual ? '' : (state.scanner.scannedCode || '');
+
+  const existingProduct = prefillBarcode ? products.find(p => p.barcode === prefillBarcode) : null;
+  
+  openModal(`
+    <div class="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4">
+      <div class="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-white p-5 sm:rounded-2xl">
+        <div class="flex items-center justify-between">
+          <h3 class="text-base font-bold text-stone-800">📋 ${isManual ? 'เพิ่มสินค้าด้วยตนเอง' : 'แจ้งเพิ่มสินค้าใหม่'}</h3>
+          <button onclick="closeModal()" class="text-stone-400">✕</button>
+        </div>
+        
+        <div class="mt-4 space-y-4">
+          ${!isManual ? `
+          <div class="rounded-2xl ${existingProduct ? 'bg-amber-50 ring-amber-100' : 'bg-sky-50 ring-sky-100'} p-3 ring-1">
+             <p class="text-sm font-bold ${existingProduct ? 'text-amber-900' : 'text-sky-900'}">บาร์โค้ด: ${escapeHtml(prefillBarcode)}</p>
+             <p class="text-[10px] font-medium ${existingProduct ? 'text-amber-700' : 'text-sky-700'}">${existingProduct ? 'พบสินค้าในระบบ' : 'ไม่พบข้อมูลในระบบ'}</p>
+          </div>
+          ` : ''}
+
+          <form id="submission-form" class="space-y-4" autocomplete="off">
+            <div class="relative">
+              <label class="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-stone-400">ชื่อสินค้า (คร่าวๆ) *</label>
+              <input id="submission-name" value="${escapeHtml(existingProduct ? existingProduct.name : '')}" placeholder="พิมพ์เพื่อค้นหาหรือระบุชื่อสินค้า" class="w-full rounded-xl border border-stone-200 px-3 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100" />
+              <div id="autocomplete-list" class="autocomplete-items"></div>
+            </div>
+
+            ${isManual ? `
+            <div>
+              <label class="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-stone-400">บาร์โค้ด (ถ้ามี)</label>
+              <input id="submission-barcode" placeholder="ระบุบาร์โค้ด" class="w-full rounded-xl border border-stone-200 px-3 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100" />
+            </div>
+            ` : ''}
+
+            <div>
+              <label class="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-stone-400">วันหมดอายุ * <span class="font-normal text-stone-400">(ล็อตนี้มีหลายวันหมดอายุ เพิ่มได้เลย)</span></label>
+              <div id="submission-expirydate-list" class="space-y-2">
+                <div class="flex gap-2 submission-expirydate-row">
+                  <input type="date" class="submission-expirydate-input flex-1 rounded-xl border border-stone-200 px-3 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100" required />
+                </div>
+              </div>
+              <button type="button" onclick="addSubmissionExpiryRow()" class="mt-2 text-xs font-bold text-brand-600 active:scale-95">+ เพิ่มวันหมดอายุอีกวัน (ล็อตเดียวกัน)</button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-stone-400">รูปสินค้า ${existingProduct && existingProduct.imageUrl ? '' : '*'}</label>
+                <label class="relative flex flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed ${existingProduct && existingProduct.imageUrl ? 'border-brand-200 bg-white' : 'border-brand-200 bg-brand-50/50'} py-6 text-brand-700 cursor-pointer active:bg-brand-100 transition-colors overflow-hidden">
+                  <div id="submission-product-preview" class="text-center">
+                    ${existingProduct && existingProduct.imageUrl ? `
+                      <img src="${existingProduct.imageUrl}" class="h-24 w-full rounded-xl object-cover shadow-sm" />
+                    ` : `
+                      <span class="text-3xl">📦</span>
+                      <span class="text-[10px] font-bold block mt-1 leading-tight">บังคับถ่าย<br>รูปสินค้า</span>
+                    `}
+                  </div>
+                  <input id="submission-product-image" type="file" accept="image/*" capture="environment" class="hidden" />
+                </label>
+                ${existingProduct && existingProduct.imageUrl
+                  ? `<p class="mt-1 text-center text-[10px] font-medium text-stone-400">ใช้รูปเดิมอัตโนมัติ<br/>(แตะรูปเพื่อถ่ายใหม่ ถ้าเปลี่ยนแพ็กเกจ)</p>`
+                  : ''}
+              </div>
+              <div>
+                <label class="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-stone-400">รูปวันหมดอายุ (ถ้ามี)</label>
+                <label class="flex flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-amber-200 bg-amber-50/50 py-6 text-amber-700 cursor-pointer active:bg-amber-100 transition-colors">
+                  <div id="submission-expiry-preview" class="text-center">
+                    <span class="text-3xl">📅</span>
+                    <span class="text-[10px] font-bold block mt-1 leading-tight">ถ่ายเพิ่ม<br>(ทางเลือก)</span>
+                  </div>
+                  <input id="submission-expiry-image" type="file" accept="image/*" capture="environment" class="hidden" />
+                </label>
+              </div>
+            </div>
+
+            <p id="submission-error" class="hidden text-xs font-medium text-red-600"></p>
+
+            <button type="submit" class="w-full rounded-2xl bg-brand-600 py-3.5 text-sm font-bold text-white shadow-lg active:scale-[0.98] transition-transform">
+              ส่งคำขอให้ AI ตรวจสอบ
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  `);
+
+  const nameInput = document.getElementById('submission-name');
+
+  // ถ้าสินค้านี้มีรูปอยู่แล้วในระบบ ใช้รูปเดิมไปก่อนเลย ไม่ต้องถ่ายซ้ำ
+  // (ถ้าแพ็กเกจเปลี่ยน ผู้ใช้แตะรูปเพื่อถ่ายใหม่ทับได้ตามปกติ)
+  let productImageData = (existingProduct && existingProduct.imageUrl) ? existingProduct.imageUrl : '';
+  let expiryImageData = '';
+
+  // กรณีไม่มีบาร์โค้ด (หรือพิมพ์ชื่อเอง): พอเลือกชื่อจากคำแนะนำ (autocomplete) ให้ดึงรูป + บาร์โค้ดเดิมของสินค้านั้นมาใส่ให้เลย
+  // ผู้ใช้กรอกแค่วันหมดอายุใหม่ ไม่ต้องถ่ายรูปซ้ำหรือพิมพ์ชื่อใหม่
+  setupAutocomplete(nameInput, products.map(p => p.name), (selectedName) => {
+    const matched = products.find((p) => p.name === selectedName);
+    if (!matched) return;
+    if (matched.imageUrl) {
+      productImageData = matched.imageUrl;
+      const previewEl = document.getElementById('submission-product-preview');
+      if (previewEl) previewEl.innerHTML = `<img src="${matched.imageUrl}" class="h-24 w-full rounded-xl object-cover shadow-sm" />`;
+    }
+    if (isManual) {
+      const bcInput = document.getElementById('submission-barcode');
+      if (bcInput && !bcInput.value && matched.barcode) bcInput.value = matched.barcode;
+    }
+  });
+
+  window.addSubmissionExpiryRow = function () {
+    const list = document.getElementById('submission-expirydate-list');
+    const row = document.createElement('div');
+    row.className = 'flex gap-2 submission-expirydate-row';
+    row.innerHTML = `
+      <input type="date" class="submission-expirydate-input flex-1 rounded-xl border border-stone-200 px-3 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100" required />
+      <button type="button" class="shrink-0 rounded-xl bg-red-50 px-3 text-red-600 active:scale-95" aria-label="ลบวันนี้">🗑️</button>
+    `;
+    row.querySelector('button').addEventListener('click', () => row.remove());
+    list.appendChild(row);
+  };
+
+  document.getElementById('submission-product-image').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    document.getElementById('submission-product-preview').innerHTML = `<span class="text-xs text-stone-400">กำลังประมวลผลรูป...</span>`;
+    compressImageFile(file).then((dataUrl) => {
+      productImageData = dataUrl;
+      document.getElementById('submission-product-preview').innerHTML = `<img src="${dataUrl}" class="h-24 w-full rounded-xl object-cover shadow-sm" />`;
+    });
+  });
+
+  document.getElementById('submission-expiry-image').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    document.getElementById('submission-expiry-preview').innerHTML = `<span class="text-xs text-stone-400">กำลังประมวลผลรูป...</span>`;
+    compressImageFile(file).then((dataUrl) => {
+      expiryImageData = dataUrl;
+      document.getElementById('submission-expiry-preview').innerHTML = `<img src="${dataUrl}" class="h-24 w-full rounded-xl object-cover shadow-sm" />`;
+    });
+  });
+
+  document.getElementById('submission-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const errEl = document.getElementById('submission-error');
+    const name = nameInput.value.trim();
+    const expiryDates = [...document.querySelectorAll('.submission-expirydate-input')]
+      .map((inp) => inp.value)
+      .filter((val) => val);
+    const barcode = isManual ? document.getElementById('submission-barcode').value.trim() : prefillBarcode;
+
+    if (!name || expiryDates.length === 0 || !productImageData) {
+      errEl.textContent = 'กรุณากรอกชื่อสินค้า วันหมดอายุ (อย่างน้อย 1 วัน) และรูปสินค้าให้ครบถ้วน';
+      errEl.classList.remove('hidden');
+      return;
+    }
+
+    // กันส่งซ้ำเฉพาะกรณีบาร์โค้ด + วันหมดอายุตรงกันทุกตัว (ของล็อตเดียวกันที่ส่งซ้ำ)
+    // ถ้าบาร์โค้ดเดียวกันแต่วันหมดอายุต่างกัน (ล็อตใหม่) จะส่งได้ตามปกติ
+    const duplicateDates = [];
+    const newSubmissions = [];
+
+    // อัปโหลดรูปขึ้น Supabase Storage ก่อนบันทึก (ถ้าเป็นรูปที่ใช้ของเดิมอยู่แล้วจะไม่อัปโหลดซ้ำ)
+    const uploadedProductImage = await uploadImageToStorage(productImageData, 'products');
+    const uploadedExpiryPhoto = await uploadImageToStorage(expiryImageData, 'expiry-photos');
+
+    expiryDates.forEach((expiryDate, idx) => {
+      const isDuplicate = barcode && pendingSubmissions.some((p) => p.barcode === barcode && p.expiryDate === expiryDate);
+      if (isDuplicate) {
+        duplicateDates.push(expiryDate);
+      } else {
+        newSubmissions.push({
+          id: Date.now() + idx,
+          barcode,
+          name,
+          expiryDate,
+          imageUrl: uploadedProductImage,
+          expiryPhoto: uploadedExpiryPhoto,
+          submittedAt: new Date().toISOString(),
+          submittedBy: state.staffCode || '',
+        });
+      }
+    });
+
+    if (newSubmissions.length === 0) {
+      errEl.textContent = 'วันหมดอายุที่ใส่มามีคำขอบาร์โค้ดนี้ซ้ำอยู่ระหว่างตรวจสอบแล้วทั้งหมด ไม่สามารถส่งซ้ำได้';
+      errEl.classList.remove('hidden');
+      return;
+    }
+
+    const updatedPending = [...pendingSubmissions, ...newSubmissions];
+    const saved = await savePending(updatedPending);
+    if (!saved) {
+      errEl.textContent = 'บันทึกขึ้น Supabase ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองส่งคำขอใหม่อีกครั้ง';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    pendingSubmissions = updatedPending;
+    closeModal();
+    const skippedNote = duplicateDates.length > 0 ? ` (ข้าม ${duplicateDates.length} วันที่ซ้ำ)` : '';
+    showToast(`✅ ส่งข้อมูลให้ AI ตรวจสอบแล้ว ${newSubmissions.length} รายการ${skippedNote}`);
+    if (state.tab === 'scanner') {
+      document.getElementById('scan-result').innerHTML = `<div class="rounded-2xl bg-brand-50 p-4 text-center text-xs font-bold text-brand-700 ring-1 ring-brand-200">✅ ส่งข้อมูลให้ AI ตรวจสอบแล้ว ${newSubmissions.length} รายการ${skippedNote}</div>`;
+    }
+  });
+}
+
+// ==================== AI ตรวจสอบ (Admin Functions) ====================
+function adminPendingListHTML() {
+  if (pendingSubmissions.length === 0) {
+    return `<p class="py-4 text-center text-xs text-stone-400">ยังไม่มีคำขอใหม่</p>`;
+  }
+  return pendingSubmissions.map((item) => {
+    const productImage = item.imageUrl || '';
+    const expiryPhoto = item.expiryPhoto || '';
+    return `
+    <div class="space-y-3 rounded-2xl bg-white p-3 shadow-card ring-1 ring-sky-100">
+      <div class="flex gap-3">
+        <div class="w-1/2 shrink-0">
+          ${productImage
+            ? `<button type="button" onclick="viewPendingPhoto(${item.id}, 'product')" class="block w-full"><img src="${productImage}" class="h-32 w-full rounded-xl object-cover ring-1 ring-stone-100" /></button>`
+            : `<div class="flex h-32 w-full items-center justify-center rounded-xl bg-stone-100 text-[10px] text-stone-400">ไม่มีรูปสินค้า</div>`}
+          <p class="mt-1 text-center text-[10px] text-stone-400 font-bold">📦 รูปสินค้า</p>
+        </div>
+        <div class="flex-1 min-w-0">
+          ${expiryPhoto
+            ? `<button type="button" onclick="viewPendingPhoto(${item.id}, 'expiry')" class="block w-full"><img src="${expiryPhoto}" class="h-32 w-full rounded-xl object-cover ring-1 ring-stone-100" /></button>`
+            : `<div class="flex h-32 w-full items-center justify-center rounded-xl bg-stone-100 text-xs text-stone-400">ไม่มีรูป</div>`}
+          <p class="mt-1 text-center text-[10px] text-stone-400 font-bold">📅 รูปวันหมดอายุ</p>
+        </div>
+      </div>
+
+      <div class="space-y-1.5">
+        <label class="text-[10px] font-bold text-sky-600 uppercase">ข้อมูลที่ AI ตรวจสอบ (แก้ไขได้)</label>
+        ${item.submittedBy ? `<p class="text-[10px] text-stone-400">🧑‍💼 ส่งคำขอโดย: <span class="font-semibold text-stone-500">${escapeHtml(item.submittedBy)}</span></p>` : ''}
+        <input id="pending-name-${item.id}" value="${escapeHtml(item.name || '')}" placeholder="ใส่ชื่อสินค้า *" class="w-full rounded-lg border border-stone-200 px-2 py-1.5 text-sm font-semibold outline-none focus:border-sky-500" />
+        <div class="flex gap-1.5">
+          <div class="w-1/2">
+            <label class="text-[10px] font-bold text-stone-400 uppercase">บาร์โค้ด</label>
+            <input id="pending-barcode-${item.id}" value="${escapeHtml(item.barcode || '')}" placeholder="บาร์โค้ด" class="w-full rounded-lg border border-stone-200 px-2 py-1.5 text-xs outline-none focus:border-sky-500" />
+          </div>
+          <div class="w-1/2">
+            <label class="text-[10px] font-bold text-stone-400 uppercase">วันหมดอายุ</label>
+            <input id="pending-expiry-${item.id}" type="date" value="${item.expiryDate || ''}" class="w-full rounded-lg border border-stone-200 px-2 py-1.5 text-xs outline-none focus:border-sky-500" />
+          </div>
+        </div>
+      </div>
+
+      <p class="text-[10px] text-stone-400">ส่งคำขอเมื่อ ${formatThaiDate(item.submittedAt.slice(0,10))}</p>
+      <div class="flex gap-2">
+        <button onclick="rejectPending(${item.id})" class="flex-1 rounded-lg bg-stone-100 py-1.5 text-xs font-semibold text-stone-600 active:scale-95">❌ ปฏิเสธ</button>
+        <button onclick="approvePending(${item.id})" class="flex-1 rounded-lg bg-brand-600 py-1.5 text-xs font-semibold text-white active:scale-95">✅ อนุมัติเข้าระบบ</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function viewPendingPhoto(id, which) {
+  const item = pendingSubmissions.find((p) => p.id === id);
+  if (!item) return;
+  const src = which === 'product' ? item.imageUrl : item.expiryPhoto;
+  if (!src) return;
+  openModal(`
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4" onclick="closeModal()">
+      <img src="${src}" class="max-h-full max-w-full rounded-lg object-contain" />
+      <button onclick="closeModal()" class="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white">✕</button>
+    </div>
+  `);
+}
+
+async function approvePending(id) {
+  const item = pendingSubmissions.find((p) => p.id === id);
+  if (!item) return;
+
+  const nameInput = document.getElementById(`pending-name-${id}`);
+  const expiryInput = document.getElementById(`pending-expiry-${id}`);
+  const barcodeInput = document.getElementById(`pending-barcode-${id}`);
+
+  if (!nameInput || !expiryInput || !barcodeInput) {
+    showAlertModal('ไม่พบข้อมูล กรุณาลองใหม่อีกครั้ง');
+    return;
+  }
+
+  const name = nameInput.value.trim();
+  const expiryDate = expiryInput.value;
+  let barcode = barcodeInput.value.trim();
+
+  if (!name || !expiryDate) {
+    showAlertModal('กรุณากรอกชื่อและวันหมดอายุให้ครบถ้วน');
+    return;
+  }
+
+  if (!barcode) barcode = `REQ${String(Date.now()).slice(-8)}`;
+
+  // เก็บสำเนาไว้ก่อน เผื่อบันทึกไม่สำเร็จจะได้คืนค่าของเดิม ไม่เสียข้อมูล
+  const productsSnapshot = products.slice();
+
+  // หาสินค้าที่ "บาร์โค้ดตรงกัน + วันหมดอายุตรงกัน" เพื่ออัปเดตของเดิม
+  // ถ้าบาร์โค้ดตรงกันแต่วันหมดอายุต่างกัน ถือเป็นล็อตใหม่ -> เพิ่มเป็นรายการใหม่แยกต่างหาก
+  const existingIndex = products.findIndex((p) => p.barcode === barcode && p.expiryDate === expiryDate);
+
+  if (existingIndex !== -1) {
+    products[existingIndex] = {
+      ...products[existingIndex],
+      name,
+      imageUrl: item.imageUrl || products[existingIndex].imageUrl,
+      notes: 'อัปเดตข้อมูลโดย AI',
+    };
+  } else {
+    const newId = products.length > 0 ? Math.max(...products.map((p) => p.id)) + 1 : 1;
+    products.push({
+      id: newId, barcode, name, category: '',
+      imageUrl: item.imageUrl || '',
+      expiryDate, notes: `เพิ่มข้อมูลโดย AI (อนุมัติโดย ${state.staffCode || '-'})`, addedDate: new Date().toISOString(),
+      addedBy: item.submittedBy || state.staffCode || '',
+    });
+  }
+
+  const saved = await saveProducts(products);
+  if (!saved) {
+    products = productsSnapshot; // คืนค่าของเดิม ไม่ให้ข้อมูลเพี้ยน
+    showAlertModal('บันทึกขึ้น Supabase ไม่สำเร็จ\n\nวิธีแก้: ตรวจสอบอินเทอร์เน็ตแล้วลองอนุมัติใหม่อีกครั้ง ถ้ายังไม่ได้ให้กดปุ่ม "💾 สำรอง" เพื่อดาวน์โหลดข้อมูลทั้งหมดเก็บไว้ก่อนค่ะ');
+    return;
+  }
+
+  pendingSubmissions = pendingSubmissions.filter((p) => p.id !== id);
+  await savePending(pendingSubmissions);
+  renderPage();
+}
+
+function rejectPending(id) {
+  showConfirmModal('ต้องการปฏิเสธคำขอนี้ใช่หรือไม่?', async () => {
+    pendingSubmissions = pendingSubmissions.filter((p) => p.id !== id);
+    await savePending(pendingSubmissions);
+    renderPage();
+  }, { danger: true, confirmLabel: 'ปฏิเสธ' });
+}
+
+// ==================== Calendar ====================
+function toDateKey(y, m, d) { return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`; }
+
+function calendarHTML() {
+  return `
+    <div class="space-y-4 pb-2">
+      <header class="flex items-center gap-2">
+        <span class="rounded-xl bg-gradient-to-br from-brand-600 to-brand-800 p-2 text-white text-lg shadow-sm ring-1 ring-white/10">🗓️</span>
+        <div>
+          <h1 class="text-lg font-bold text-stone-800">ปฏิทินวันหมดอายุ</h1>
+          <p class="text-xs text-stone-400">แตะวันที่เพื่อดูสินค้า</p>
+        </div>
+      </header>
+      <div class="rounded-2xl bg-white p-4 shadow-card ring-1 ring-brand-100/60" id="calendar-card">${calendarCardHTML()}</div>
+      <div id="calendar-day-list">${calendarDayListHTML()}</div>
+    </div>`;
+}
+
+function monthSummary(year, month) {
+  const prefix = `${year}-${String(month).padStart(2, '0')}-`;
+  const summary = {};
+  products.filter((p) => !p.removed).forEach((p) => { if (p.expiryDate.startsWith(prefix)) summary[p.expiryDate] = { status: getStatus(p.expiryDate) }; });
+  return summary;
+}
+
+function calendarCardHTML() {
+  const { year, month } = state.cal;
+  const firstDay = new Date(year, month - 1, 1).getDay();
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const cells = Array.from({ length: firstDay }, () => null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  while (cells.length % 7 !== 0) cells.push(null);
+  const today = new Date();
+  const todayKey = toDateKey(today.getFullYear(), today.getMonth() + 1, today.getDate());
+  const summary = monthSummary(year, month);
+  const dotColor = { expired: 'bg-red-500', urgent: 'bg-amber-500', safe: 'bg-brand-500' };
+  return `
+    <div class="mb-3 flex items-center justify-between">
+      <button onclick="goToMonth(-1)" class="rounded-full p-1.5 text-stone-400 active:bg-stone-100">‹</button>
+      <p class="text-sm font-semibold text-stone-700">${MONTHS_TH[month - 1]} ${year + 543}</p>
+      <button onclick="goToMonth(1)" class="rounded-full p-1.5 text-stone-400 active:bg-stone-100">›</button>
+    </div>
+    <div class="grid grid-cols-7 gap-1 text-center">
+      ${WEEKDAYS_TH.map((wd) => `<span class="text-[11px] font-medium text-stone-400">${wd}</span>`).join('')}
+      ${cells.map((day) => {
+        if (day === null) return '<span></span>';
+        const key = toDateKey(year, month, day);
+        const info = summary[key];
+        const isToday = key === todayKey;
+        const isSelected = key === state.cal.selected;
+        return `
+          <button onclick="selectCalendarDay('${key}')" class="flex flex-col items-center gap-0.5 rounded-lg py-1.5 text-xs ${isSelected ? 'bg-brand-600 text-white' : isToday ? 'bg-brand-50 text-brand-700 font-semibold' : 'text-stone-600'}">
+            ${day}
+            <span class="h-1.5 w-1.5 rounded-full ${info ? (isSelected ? 'bg-white' : dotColor[info.status]) : 'bg-transparent'}"></span>
+          </button>`;
+      }).join('')}
+    </div>`;
+}
+
+function calendarDayListHTML() {
+  if (!state.cal.selected) return '';
+  const list = products.map(withComputed).filter((p) => !p.removed && p.expiryDate === state.cal.selected).sort((a, b) => a.name.localeCompare(b.name));
+  return `
+    <div class="space-y-2.5 mt-4">
+      <p class="text-xs font-medium text-stone-500">หมดอายุวันที่ ${state.cal.selected}</p>
+      ${list.length === 0
+        ? `<div class="rounded-2xl bg-white py-8 text-center shadow-card ring-1 ring-brand-100/60"><p class="text-sm text-stone-400">ไม่มีสินค้าหมดอายุ</p></div>`
+        : list.map((p) => productCardHTML(p)).join('')}
+    </div>`;
+}
+
+function goToMonth(delta) {
+  let m = state.cal.month + delta, y = state.cal.year;
+  if (m > 12) { m = 1; y++; } else if (m < 1) { m = 12; y--; }
+  state.cal.month = m; state.cal.year = y; state.cal.selected = null;
+  document.getElementById('calendar-card').innerHTML = calendarCardHTML();
+  document.getElementById('calendar-day-list').innerHTML = calendarDayListHTML();
+}
+function selectCalendarDay(key) {
+  state.cal.selected = key;
+  document.getElementById('calendar-card').innerHTML = calendarCardHTML();
+  document.getElementById('calendar-day-list').innerHTML = calendarDayListHTML();
+}
+
+// ==================== AI ตรวจสอบ (Admin) ====================
+function adminHTML() {
+  if (!isAdmin()) {
+    return `
+      <div class="space-y-4">
+        <header class="flex items-center gap-2">
+          <span class="rounded-xl bg-gradient-to-br from-brand-600 to-brand-800 p-2 text-white text-lg shadow-sm ring-1 ring-white/10">🤖</span>
+          <div>
+            <h1 class="text-lg font-bold text-stone-800">โหมด AI ตรวจสอบ</h1>
+            <p class="text-xs text-stone-400">เข้าสู่ระบบเพื่อตรวจสอบคำขอ</p>
+          </div>
+        </header>
+        <div class="rounded-2xl bg-white p-6 text-center shadow-card ring-1 ring-brand-100/60">
+          <p class="text-3xl">🛡️</p>
+          <p class="mt-2 text-sm text-stone-500">กรุณาเข้าสู่ระบบ</p>
+          <button onclick="openAdminLogin()" class="mt-4 w-full rounded-xl bg-brand-600 py-2.5 text-sm font-semibold text-white active:scale-95">เข้าสู่ระบบ</button>
+        </div>
+      </div>`;
+  }
+
+  const removedCount = products.filter((p) => p.removed).length;
+  const activeCount = products.length - removedCount;
+
+  return `
+    <div class="space-y-4 pb-2">
+      <header class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="rounded-xl bg-gradient-to-br from-brand-600 to-brand-800 p-2 text-white text-lg shadow-sm ring-1 ring-white/10">🤖</span>
+          <div>
+            <h1 class="text-lg font-bold text-stone-800">AI ตรวจสอบข้อมูล</h1>
+            <p class="text-xs text-stone-400">ตรวจสอบความถูกต้องและอนุมัติเข้าระบบ</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="refreshFromCloud()" class="rounded-full bg-stone-100 p-2 text-stone-500 active:scale-95" aria-label="รีเฟรชข้อมูล">🔄</button>
+          <button onclick="adminLogout()" class="rounded-full bg-stone-100 p-2 text-stone-500 active:scale-95">↩️</button>
+        </div>
+      </header>
+
+      <button onclick="openProductForm(null)" class="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-600 py-2.5 text-sm font-semibold text-white active:scale-95">➕ เพิ่มสินค้าใหม่ (Manual)</button>
+
+      <section class="rounded-2xl bg-white p-4 shadow-card ring-1 ring-sky-100">
+        <p class="mb-3 flex items-center gap-1.5 text-sm font-semibold text-stone-700">
+          📋 รายการรอตรวจสอบ
+          ${pendingSubmissions.length > 0 ? `<span class="rounded-full bg-sky-500 px-2 py-0.5 text-[11px] font-bold text-white">${pendingSubmissions.length}</span>` : ''}
+        </p>
+        <div id="admin-pending-list" class="space-y-2.5">${adminPendingListHTML()}</div>
+      </section>
+
+      <section class="rounded-2xl bg-white p-4 shadow-card ring-1 ring-stone-200">
+        <p class="mb-3 flex items-center gap-1.5 text-sm font-semibold text-stone-700">
+          📦 รายการที่เก็บออกแล้ว
+          ${removedCount > 0 ? `<span class="rounded-full bg-stone-400 px-2 py-0.5 text-[11px] font-bold text-white">${removedCount}</span>` : ''}
+        </p>
+        <div id="admin-removed-list" class="space-y-2.5">${adminRemovedListHTML()}</div>
+      </section>
+
+      <section class="rounded-2xl bg-white p-4 shadow-card ring-1 ring-brand-100/60">
+        <p class="mb-3 text-sm font-semibold text-stone-700">จัดการข้อมูล</p>
+        <div class="flex gap-2">
+          <button onclick="exportCSV()" class="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-brand-50 py-2 text-xs font-semibold text-brand-700 active:scale-95">⬇️ CSV</button>
+          <button onclick="backupJSON()" class="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-stone-100 py-2 text-xs font-semibold text-stone-600 active:scale-95">💾 สำรอง</button>
+          <button onclick="document.getElementById('restore-file-input').click()" class="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-stone-100 py-2 text-xs font-semibold text-stone-600 active:scale-95">⬆️ กู้คืน</button>
+          <input id="restore-file-input" type="file" accept="application/json" class="hidden" onchange="handleRestoreFile(event)" />
+        </div>
+        <div id="restore-panel"></div>
+        <button onclick="openChangeAdminCreds()" class="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl bg-stone-100 py-2 text-xs font-semibold text-stone-600 active:scale-95">🔑 เปลี่ยนรหัสเข้าระบบ</button>
+      </section>
+
+      <section class="space-y-2.5">
+        <p class="text-sm font-semibold text-stone-700">สินค้าทั้งหมด (${activeCount})</p>
+        <div id="admin-product-list">${adminProductListHTML()}</div>
+      </section>
+    </div>`;
+}
+
+function adminProductListHTML() {
+  const list = products.map(withComputed).filter((p) => !p.removed).sort((a, b) => a.expiryDate.localeCompare(b.expiryDate));
+  return list.map((p) => productCardHTML(p, { showActions: true })).join('');
+}
+
+function adminRemovedListHTML() {
+  const list = products.map(withComputed).filter((p) => p.removed).sort((a, b) => (b.removedDate || '').localeCompare(a.removedDate || ''));
+  if (list.length === 0) {
+    return `<p class="py-4 text-center text-xs text-stone-400">ยังไม่มีรายการที่เก็บออก</p>`;
+  }
+  return list.map((p) => `
+    <div class="flex items-center gap-3 rounded-2xl bg-stone-50 p-3 ring-1 ring-stone-200">
+      ${productThumbHTML(p)}
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center justify-between gap-2">
+          <p class="truncate text-sm font-semibold text-stone-600">${escapeHtml(p.name)}</p>
+          <span class="rounded-full bg-stone-200 px-2.5 py-0.5 text-xs font-semibold text-stone-600">เก็บออกแล้ว</span>
+        </div>
+        <p class="mt-0.5 truncate text-xs text-stone-400">${escapeHtml(p.barcode)}</p>
+        ${p.removedBy ? `<p class="mt-0.5 truncate text-[10px] text-stone-400">🧑‍💼 เก็บออกโดย: ${escapeHtml(p.removedBy)}</p>` : ''}
+      </div>
+      <div class="flex shrink-0 flex-col gap-1.5">
+        <button onclick="undoRemoveProduct(${p.id})" class="rounded-full bg-brand-50 p-1.5 text-brand-700 active:scale-95" aria-label="คืนขึ้นชั้น">↩️</button>
+        <button onclick="confirmDeleteProduct(${p.id})" class="rounded-full bg-red-50 p-1.5 text-red-600 active:scale-95" aria-label="ลบถาวร">🗑️</button>
+      </div>
+    </div>`).join('');
+}
+
+function adminLogout() { setAdmin(false); renderPage(); }
+
+function openAdminLogin(onSuccess) {
+  pendingLoginSuccess = onSuccess || null;
+  openModal(`
+    <div class="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center" onclick="if(event.target===this) closeModal()">
+      <div class="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl">
+        <div class="flex items-center justify-between">
+          <h3 class="text-base font-bold text-stone-800">🔒 เข้าสู่ระบบ AI ตรวจสอบ</h3>
+          <button onclick="closeModal()" class="text-stone-400">✕</button>
+        </div>
+        <form id="login-form" class="mt-4 space-y-4">
+          <div>
+            <label class="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-stone-400">รหัสพนักงาน</label>
+            <input id="login-id" type="tel" placeholder="ระบุรหัส 5 หลัก" class="w-full rounded-xl border border-stone-200 px-3 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100" />
+          </div>
+          <div>
+            <label class="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-stone-400">PIN 4 หลัก</label>
+            <input id="login-pin" type="password" maxlength="4" placeholder="••••" class="w-full rounded-xl border border-stone-200 px-3 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100" />
+          </div>
+          <p id="login-error" class="hidden text-xs font-medium text-red-600"></p>
+          <button type="submit" class="w-full rounded-xl bg-brand-600 py-3 text-sm font-bold text-white shadow-lg active:scale-[0.98]">ยืนยันตัวตน</button>
+        </form>
+      </div>
+    </div>
+  `);
+  document.getElementById('login-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const id = document.getElementById('login-id').value.trim();
+    const pin = document.getElementById('login-pin').value.trim();
+    if (id === adminCreds.id && pin === adminCreds.pin) {
+      setAdmin(true);
+      closeModal();
+      if (pendingLoginSuccess) pendingLoginSuccess();
+      else renderPage();
+    } else {
+      const err = document.getElementById('login-error');
+      err.textContent = 'รหัสพนักงานหรือ PIN ไม่ถูกต้อง';
+      err.classList.remove('hidden');
+    }
+  });
+}
+
+function openChangeAdminCreds() {
+  openModal(`
+    <div class="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center" onclick="if(event.target===this) closeModal()">
+      <div class="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl">
+        <div class="flex items-center justify-between">
+          <h3 class="text-base font-bold text-stone-800">🔑 เปลี่ยนรหัสเข้าระบบ</h3>
+          <button onclick="closeModal()" class="text-stone-400">✕</button>
+        </div>
+        <form id="change-creds-form" class="mt-4 space-y-4">
+          <div>
+            <label class="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-stone-400">PIN ปัจจุบัน (ยืนยันตัวตนก่อนเปลี่ยน)</label>
+            <input id="cc-current-pin" type="password" maxlength="4" placeholder="••••" class="w-full rounded-xl border border-stone-200 px-3 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100" />
+          </div>
+          <div class="h-px bg-stone-100"></div>
+          <div>
+            <label class="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-stone-400">รหัสพนักงานใหม่</label>
+            <input id="cc-new-id" type="tel" value="${escapeHtml(adminCreds.id)}" placeholder="ระบุรหัสพนักงานใหม่" class="w-full rounded-xl border border-stone-200 px-3 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100" />
+          </div>
+          <div>
+            <label class="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-stone-400">PIN ใหม่ (4 หลัก)</label>
+            <input id="cc-new-pin" type="password" maxlength="4" placeholder="••••" class="w-full rounded-xl border border-stone-200 px-3 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100" />
+          </div>
+          <div>
+            <label class="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-stone-400">ยืนยัน PIN ใหม่</label>
+            <input id="cc-new-pin-confirm" type="password" maxlength="4" placeholder="••••" class="w-full rounded-xl border border-stone-200 px-3 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100" />
+          </div>
+          <p id="cc-error" class="hidden text-xs font-medium text-red-600"></p>
+          <button type="submit" class="w-full rounded-xl bg-brand-600 py-3 text-sm font-bold text-white shadow-lg active:scale-[0.98]">บันทึกรหัสใหม่</button>
+        </form>
+      </div>
+    </div>
+  `);
+  document.getElementById('change-creds-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const errEl = document.getElementById('cc-error');
+    const currentPin = document.getElementById('cc-current-pin').value.trim();
+    const newId = document.getElementById('cc-new-id').value.trim();
+    const newPin = document.getElementById('cc-new-pin').value.trim();
+    const newPinConfirm = document.getElementById('cc-new-pin-confirm').value.trim();
+
+    if (currentPin !== adminCreds.pin) {
+      errEl.textContent = 'PIN ปัจจุบันไม่ถูกต้อง';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    if (!newId) {
+      errEl.textContent = 'กรุณาระบุรหัสพนักงานใหม่';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    if (!/^\d{4}$/.test(newPin)) {
+      errEl.textContent = 'PIN ใหม่ต้องเป็นเลข 4 หลักเท่านั้น';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    if (newPin !== newPinConfirm) {
+      errEl.textContent = 'PIN ใหม่ทั้งสองช่องไม่ตรงกัน';
+      errEl.classList.remove('hidden');
+      return;
+    }
+
+    const updated = { id: newId, pin: newPin };
+    if (!(await saveAdminCreds(updated))) {
+      errEl.textContent = 'บันทึกขึ้น Supabase ไม่สำเร็จ ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    adminCreds = updated;
+    closeModal();
+    showToast('✅ เปลี่ยนรหัสเข้าระบบสำเร็จ');
+  });
+}
+
+function openProductForm(productId, prefillBarcode) {
+  const initial = productId ? products.find((p) => p.id === productId) : null;
+  const v = initial ? { ...initial } : { barcode: prefillBarcode || '', name: '', category: '', imageUrl: '', expiryDate: '', notes: '' };
+  openModal(`
+    <div class="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4">
+      <div class="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-white p-5 sm:rounded-2xl">
+        <div class="flex items-center justify-between">
+          <h3 class="text-base font-bold text-stone-800">${productId ? '✏️ แก้ไขสินค้า' : '➕ เพิ่มสินค้าใหม่'}</h3>
+          <button type="button" onclick="closeProductForm()" class="text-stone-400">✕</button>
+        </div>
+        <form id="product-form" class="mt-4 space-y-3">
+          <div>
+            <label class="mb-1 block text-xs font-medium text-stone-500">บาร์โค้ด *</label>
+            <div class="flex gap-2">
+              <input id="form-barcode" value="${escapeHtml(v.barcode)}" required class="flex-1 rounded-xl border border-stone-200 px-3 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100" />
+              <button type="button" onclick="toggleFormScanner()" class="shrink-0 rounded-xl bg-brand-50 px-3 text-brand-700 active:scale-95" aria-label="สแกนบาร์โค้ด">📷</button>
+            </div>
+            <div id="form-scanner-box" class="hidden relative mt-2 aspect-[4/3] overflow-hidden rounded-2xl bg-black">
+              <div id="form-qr-reader" class="h-full w-full"></div>
+              <div id="form-qr-status" class="absolute inset-0 flex items-center justify-center bg-stone-900 text-center text-xs text-white/70 px-4">กำลังเปิดกล้อง...</div>
+              <button type="button" onclick="toggleFormScanner()" class="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/40 text-xs text-white">✕</button>
+            </div>
+          </div>
+
+          <div><label class="mb-1 block text-xs font-medium text-stone-500">ชื่อสินค้า *</label><input id="form-name" value="${escapeHtml(v.name)}" required class="w-full rounded-xl border border-stone-200 px-3 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100" /></div>
+
+          ${productId ? `
+          <div><label class="mb-1 block text-xs font-medium text-stone-500">วันหมดอายุ *</label><input id="form-expiry" type="date" value="${v.expiryDate}" required class="w-full rounded-xl border border-stone-200 px-3 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100" /></div>
+          ` : `
+          <div>
+            <label class="mb-1 block text-xs font-medium text-stone-500">วันหมดอายุ * <span class="font-normal text-stone-400">(ถ้ามีหลายล็อต เพิ่มได้หลายวันในครั้งเดียว)</span></label>
+            <div id="form-expiry-list" class="space-y-2">
+              <div class="flex gap-2 form-expiry-row">
+                <input type="date" class="form-expiry-input flex-1 rounded-xl border border-stone-200 px-3 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100" required />
+              </div>
+            </div>
+            <button type="button" onclick="addExpiryDateRow()" class="mt-2 text-xs font-bold text-brand-600 active:scale-95">+ เพิ่มวันหมดอายุอีกวัน (ล็อตใหม่)</button>
+          </div>
+          `}
+
+          <div>
+            <label class="mb-1 block text-xs font-medium text-stone-500">รูปสินค้า</label>
+            <div class="flex items-start gap-3">
+              <label class="relative flex h-20 w-20 shrink-0 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-brand-200 bg-brand-50/50 text-brand-700 active:bg-brand-100">
+                <div id="form-image-preview" class="flex h-full w-full items-center justify-center">
+                  ${v.imageUrl ? `<img src="${escapeHtml(v.imageUrl)}" class="h-full w-full object-cover" />` : `<span class="text-2xl">📷</span>`}
+                </div>
+                <input id="form-image-file" type="file" accept="image/*" capture="environment" class="hidden" />
+              </label>
+              <div class="flex-1">
+                <label class="mb-1 block text-[10px] font-medium text-stone-400">หรือใส่ URL รูปภาพ</label>
+                <input id="form-image" value="${escapeHtml(v.imageUrl)}" class="w-full rounded-xl border border-stone-200 px-3 py-2 text-xs outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100" />
+              </div>
+            </div>
+          </div>
+
+          <button type="submit" class="mt-2 w-full rounded-xl bg-brand-600 py-3 text-sm font-semibold text-white active:scale-95">${productId ? 'บันทึก' : 'เพิ่มสินค้า'}</button>
+        </form>
+      </div>
+    </div>
+  `);
+
+  let formCapturedImage = '';
+  document.getElementById('form-image-file').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    document.getElementById('form-image-preview').innerHTML = `<span class="text-[9px] text-stone-400">กำลังประมวลผล...</span>`;
+    compressImageFile(file).then((dataUrl) => {
+      formCapturedImage = dataUrl;
+      document.getElementById('form-image-preview').innerHTML = `<img src="${dataUrl}" class="h-full w-full object-cover" />`;
+      document.getElementById('form-image').value = '';
+    });
+  });
+
+  if (!productId) {
+    window.addExpiryDateRow = function () {
+      const list = document.getElementById('form-expiry-list');
+      const row = document.createElement('div');
+      row.className = 'flex gap-2 form-expiry-row';
+      row.innerHTML = `
+        <input type="date" class="form-expiry-input flex-1 rounded-xl border border-stone-200 px-3 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100" required />
+        <button type="button" class="shrink-0 rounded-xl bg-red-50 px-3 text-red-600 active:scale-95" aria-label="ลบวันนี้">🗑️</button>
+      `;
+      row.querySelector('button').addEventListener('click', () => row.remove());
+      list.appendChild(row);
+    };
+  }
+
+  document.getElementById('product-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    stopFormScanner();
+    const barcode = document.getElementById('form-barcode').value.trim();
+    const name = document.getElementById('form-name').value.trim();
+    const rawImageUrl = formCapturedImage || document.getElementById('form-image').value.trim();
+    const imageUrl = await uploadImageToStorage(rawImageUrl, 'products');
+
+    if (productId) {
+      const expiryDate = document.getElementById('form-expiry').value;
+      const idx = products.findIndex((p) => p.id === productId);
+      if (idx !== -1) products[idx] = { ...products[idx], barcode, name, expiryDate, imageUrl };
+    } else {
+      const expiryDates = [...document.querySelectorAll('.form-expiry-input')]
+        .map((inp) => inp.value)
+        .filter((val) => val);
+      if (expiryDates.length === 0) return;
+
+      expiryDates.forEach((expiryDate) => {
+        const existingIdx = products.findIndex((p) => p.barcode === barcode && p.expiryDate === expiryDate);
+        if (existingIdx !== -1) {
+          products[existingIdx] = { ...products[existingIdx], name, imageUrl: imageUrl || products[existingIdx].imageUrl };
+        } else {
+          const newId = products.length > 0 ? Math.max(...products.map((p) => p.id)) + 1 : 1;
+          products.push({ id: newId, barcode, name, category: '', imageUrl, expiryDate, addedDate: new Date().toISOString(), addedBy: state.staffCode || '' });
+        }
+      });
+    }
+    if (await saveProductsOrWarn()) { closeModal(); renderPage(); }
+  });
+}
+
+// ---- สแกนบาร์โค้ดในฟอร์มเพิ่ม/แก้ไขสินค้า (สำหรับแอดมินเพิ่มเองโดยตรง) ----
+let formQrCode = null;
+function toggleFormScanner() {
+  const box = document.getElementById('form-scanner-box');
+  if (!box) return;
+  if (box.classList.contains('hidden')) {
+    box.classList.remove('hidden');
+    startFormScanner();
+  } else {
+    stopFormScanner();
+    box.classList.add('hidden');
+  }
+}
+function startFormScanner() {
+  if (!window.Html5Qrcode) {
+    const statusEl = document.getElementById('form-qr-status');
+    if (statusEl) statusEl.textContent = 'ไม่พบไลบรารีกล้อง (ต้องต่ออินเทอร์เน็ตเพื่อโหลด html5-qrcode)';
+    return;
+  }
+  formQrCode = new Html5Qrcode('form-qr-reader');
+  formQrCode
+    .start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: { width: 220, height: 130 } },
+      (decodedText) => {
+        playBeep();
+        const barcodeInput = document.getElementById('form-barcode');
+        if (barcodeInput) barcodeInput.value = decodedText;
+        stopFormScanner();
+        const box = document.getElementById('form-scanner-box');
+        if (box) box.classList.add('hidden');
+      },
+      () => { /* ไม่เจอบาร์โค้ดในเฟรมนี้ - ไม่ต้องทำอะไร */ },
+    )
+    .then(() => {
+      const statusEl = document.getElementById('form-qr-status');
+      if (statusEl) statusEl.remove();
+    })
+    .catch((err) => {
+      console.error(err);
+      const statusEl = document.getElementById('form-qr-status');
+      if (statusEl) statusEl.textContent = 'ไม่สามารถเข้าถึงกล้องได้ กรุณาอนุญาตการใช้กล้อง';
+    });
+}
+function stopFormScanner() {
+  if (formQrCode) {
+    const instance = formQrCode;
+    formQrCode = null;
+    instance.stop().catch(() => {}).finally(() => { try { instance.clear(); } catch {} });
+  }
+}
+function closeProductForm() {
+  stopFormScanner();
+  closeModal();
+}
+
+function markRemovedConfirm(id) {
+  const p = products.find((x) => x.id === id);
+  if (!p) return;
+  showConfirmModal(`เก็บ "${p.name}" ออกจากชั้นแล้วใช่ไหมคะ?`, async () => {
+    p.removed = true;
+    p.removedDate = new Date().toISOString();
+    p.removedBy = state.staffCode || '';
+    if (await saveProductsOrWarn()) {
+      renderPage();
+      showToast('📦 เก็บออกแล้ว');
+    }
+  }, { confirmLabel: '✅ เก็บออกแล้ว' });
+}
+
+async function undoRemoveProduct(id) {
+  const p = products.find((x) => x.id === id);
+  if (!p) return;
+  delete p.removed;
+  delete p.removedDate;
+  if (await saveProductsOrWarn()) renderPage();
+}
+
+function confirmDeleteProduct(id) {
+  const p = products.find((x) => x.id === id);
+  if (!p) return;
+  showConfirmModal(`ลบสินค้า "${p.name}"?`, async () => {
+    products = products.filter((x) => x.id !== id);
+    if (await saveProductsOrWarn()) renderPage();
+  }, { danger: true, confirmLabel: 'ลบ' });
+}
+
+function exportCSV() {
+  const headers = ['Barcode', 'Name', 'ExpiryDate', 'Status'];
+  const rows = products.map(withComputed).map(p => [p.barcode, p.name, p.expiryDate, STATUS_LABEL_TH[p.status]]);
+  const csvContent = "\uFEFF" + [headers, ...rows].map(e => e.join(",")).join("\n");
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.setAttribute("href", url); link.setAttribute("download", `expiry_report.csv`);
+  document.body.appendChild(link); link.click(); document.body.removeChild(link);
+}
+
+function backupJSON() {
+  const data = { products, pendingSubmissions };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a"); link.href = url; link.download = `rimping_backup.json`; link.click();
+}
+
+function handleRestoreFile(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    try {
+      const data = JSON.parse(String(event.target.result));
+      if (data && Array.isArray(data.products)) {
+        pendingRestoreProducts = data.products;
+        document.getElementById('restore-panel').innerHTML = `<div class="mt-2 p-2 bg-amber-50 rounded-lg text-xs">พบ ${data.products.length} รายการ <button onclick="confirmRestore()" class="text-brand-600 font-bold ml-2">กู้คืน</button></div>`;
+      }
+    } catch { showAlertModal('ไฟล์ไม่ถูกต้อง'); }
+  };
+  reader.readAsText(file);
+}
+async function confirmRestore() { if (pendingRestoreProducts) { products = pendingRestoreProducts; if (await saveProductsOrWarn()) { pendingRestoreProducts = null; document.getElementById('restore-panel').innerHTML = ''; renderPage(); showAlertModal('สำเร็จ'); } } }
+
+function openModal(html) { document.getElementById('modal-root').innerHTML = html; document.body.style.overflow = 'hidden'; }
+function closeModal() { document.getElementById('modal-root').innerHTML = ''; document.body.style.overflow = ''; }
+
+// ==================== Custom alert/confirm (replaces native confirm()/alert()) ====================
+// หมายเหตุ: เมื่อแอปถูก "เพิ่มไปยังหน้าจอโฮม" บน iPhone (standalone mode) คำสั่ง confirm()/alert()
+// ของเบราว์เซอร์จะไม่ทำงานและทำให้หน้าจอค้างทั้งหน้า จึงต้องใช้หน้าต่างยืนยันที่สร้างขึ้นเองแทน
+let pendingConfirmAction = null;
+function showAlertModal(message) {
+  openModal(`
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onclick="if(event.target===this) closeModal()">
+      <div class="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl text-center">
+        <p class="text-sm text-stone-700 whitespace-pre-line">${escapeHtml(message)}</p>
+        <button onclick="closeModal()" class="mt-4 w-full rounded-xl bg-brand-600 py-2.5 text-sm font-bold text-white active:scale-95">ตกลง</button>
+      </div>
+    </div>
+  `);
+}
+function showConfirmModal(message, onConfirm, opts) {
+  opts = opts || {};
+  pendingConfirmAction = onConfirm;
+  const confirmLabel = opts.confirmLabel || 'ยืนยัน';
+  const confirmClass = opts.danger ? 'bg-red-600' : 'bg-brand-600';
+  openModal(`
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onclick="if(event.target===this){ pendingConfirmAction=null; closeModal(); }">
+      <div class="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl text-center">
+        <p class="text-sm text-stone-700 whitespace-pre-line">${escapeHtml(message)}</p>
+        <div class="mt-4 flex gap-2">
+          <button onclick="pendingConfirmAction=null; closeModal();" class="flex-1 rounded-xl bg-stone-100 py-2.5 text-sm font-bold text-stone-600 active:scale-95">ยกเลิก</button>
+          <button onclick="runPendingConfirm()" class="flex-1 rounded-xl ${confirmClass} py-2.5 text-sm font-bold text-white active:scale-95">${confirmLabel}</button>
+        </div>
+      </div>
+    </div>
+  `);
+}
+function runPendingConfirm() {
+  const action = pendingConfirmAction;
+  pendingConfirmAction = null;
+  closeModal();
+  if (action) action();
+}
+
+// ดึงข้อมูลจาก Supabase มาใหม่ — silent=true ใช้ตอน sync อัตโนมัติ (ไม่ขึ้น toast, ไม่รบกวนตอนกำลังสแกนกล้องอยู่)
+async function refreshFromCloud(silent) {
+  if (!silent) showToast('🔄 กำลังรีเฟรชข้อมูล...');
+  try {
+    const [p, ps, ac] = await Promise.all([fetchProductsFromCloud(), fetchPendingFromCloud(), fetchAdminCredsFromCloud()]);
+    products = p;
+    pendingSubmissions = ps;
+    adminCreds = ac;
+    // ไม่รีเฟรชหน้าจอตอนกำลังสแกนบาร์โค้ดอยู่ เพื่อไม่ให้กล้องสะดุด (ข้อมูลที่ดึงมาใหม่จะถูกใช้ตอนกลับไปหน้าอื่น)
+    if (!(silent && state.tab === 'scanner')) renderPage();
+    if (!silent) showToast('✅ อัปเดตข้อมูลล่าสุดแล้ว');
+  } catch (err) {
+    console.error('refreshFromCloud failed:', err);
+    if (!silent) showAlertModal('รีเฟรชข้อมูลไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่อีกครั้งค่ะ');
+  }
+}
+
+// ==================== Realtime sync (ออนไลน์ทุกเครื่องอัตโนมัติ ไม่ต้องกดรีเฟรชเอง) ====================
+// ทุกเครื่องที่เปิดแอปจะรับการเปลี่ยนแปลง (เพิ่ม/แก้ไข/ลบ/อนุมัติ/เปลี่ยนรหัสแอดมิน) จากเครื่องอื่นแบบสดทันที
+let realtimeRefreshTimer = null;
+function scheduleRealtimeRefresh() {
+  // หน่วงเวลาเล็กน้อยและรวมหลายๆ การเปลี่ยนแปลงที่มาพร้อมกันให้เป็นการรีเฟรชครั้งเดียว
+  clearTimeout(realtimeRefreshTimer);
+  realtimeRefreshTimer = setTimeout(() => { refreshFromCloud(true); }, 600);
+}
+function setupRealtimeSync() {
+  if (!sb) return;
+  const updateStatusBadge = () => {
+    const el = document.getElementById('online-status-badge');
+    if (el) el.outerHTML = onlineStatusBadgeHTML();
+  };
+  sb.channel('expiry-products-realtime')
+    .on('postgres_changes', { event: '*', schema: 'public', table: PRODUCTS_TABLE }, scheduleRealtimeRefresh)
+    .subscribe((status) => { state.realtimeStatus.products = status; updateStatusBadge(); });
+  sb.channel('expiry-pending-realtime')
+    .on('postgres_changes', { event: '*', schema: 'public', table: PENDING_TABLE }, scheduleRealtimeRefresh)
+    .subscribe((status) => { state.realtimeStatus.pending = status; updateStatusBadge(); });
+  sb.channel('expiry-admincreds-realtime')
+    .on('postgres_changes', { event: '*', schema: 'public', table: ADMIN_CREDS_TABLE }, scheduleRealtimeRefresh)
+    .subscribe((status) => { state.realtimeStatus.admincreds = status; updateStatusBadge(); });
+}
+
+// ป้ายสถานะออนไลน์: เขียว = เชื่อมต่อเรียลไทม์อยู่ครบ, เหลือง = กำลังเชื่อมต่อ, แดง = หลุดการเชื่อมต่อ
+function onlineStatusBadgeHTML() {
+  const statuses = Object.values(state.realtimeStatus);
+  let color = 'bg-amber-400';
+  let label = 'กำลังเชื่อมต่อ...';
+  if (statuses.every((s) => s === 'SUBSCRIBED')) {
+    color = 'bg-emerald-500';
+    label = 'ออนไลน์';
+  } else if (statuses.some((s) => s === 'CHANNEL_ERROR' || s === 'TIMED_OUT' || s === 'CLOSED')) {
+    color = 'bg-red-500';
+    label = 'หลุดการเชื่อมต่อ';
+  }
+  return `<span id="online-status-badge" class="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-stone-500 shadow-sm ring-1 ring-stone-200" title="${label}"><span class="h-2 w-2 rounded-full ${color}"></span>${label}</span>`;
+}
+
+// ถามรหัส/ชื่อพนักงานก่อนเข้าใช้งานครั้งแรกของเครื่องนี้ (พิมพ์อะไรก็ได้ ไม่มีการตรวจสอบ แค่ติดป้ายว่าใครทำรายการ)
+function ensureStaffCode() {
+  return new Promise((resolve) => {
+    const saved = getSavedStaffCode();
+    if (saved) {
+      state.staffCode = saved;
+      resolve();
+      return;
+    }
+    const appEl = document.getElementById('app');
+    appEl.innerHTML = `
+      <div class="flex h-[80vh] flex-col items-center justify-center gap-4 px-6 text-center">
+        <span class="rounded-2xl bg-brand-600 p-3 text-3xl text-white">🧑‍💼</span>
+        <div>
+          <h1 class="text-lg font-bold text-stone-800">ใส่ชื่อ/รหัสพนักงาน</h1>
+          <p class="mt-1 text-xs text-stone-400">เพื่อบันทึกว่าใครเป็นคนทำรายการ (พิมพ์อะไรก็ได้ครั้งเดียว เครื่องนี้จะจำไว้ให้)</p>
+        </div>
+        <form id="staff-code-form" class="w-full max-w-xs space-y-3">
+          <input id="staff-code-input" placeholder="เช่น ชื่อเล่น หรือรหัสพนักงาน" required class="w-full rounded-xl border border-stone-200 px-4 py-3 text-center text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100" />
+          <button type="submit" class="w-full rounded-xl bg-brand-600 py-3 text-sm font-bold text-white active:scale-95">เข้าใช้งาน</button>
+        </form>
+      </div>`;
+    document.getElementById('staff-code-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const code = document.getElementById('staff-code-input').value.trim();
+      if (!code) return;
+      saveStaffCode(code);
+      state.staffCode = code;
+      resolve();
+    });
+  });
+}
+
+// เปลี่ยนชื่อ/รหัสพนักงานของเครื่องนี้ได้ทุกเมื่อ (เช่น เปลี่ยนเวรกัน)
+function promptChangeStaffCode() {
+  openModal(`
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onclick="if(event.target===this) closeModal()">
+      <div class="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl text-center">
+        <p class="text-sm font-bold text-stone-700">เปลี่ยนชื่อ/รหัสพนักงาน</p>
+        <p class="mt-1 text-xs text-stone-400">ใช้สำหรับเครื่องนี้เท่านั้น (เช่น เปลี่ยนเวรกัน)</p>
+        <form id="staff-code-change-form" class="mt-3">
+          <input id="staff-code-change-input" value="${escapeHtml(state.staffCode)}" placeholder="ชื่อ/รหัสพนักงาน" required class="w-full rounded-xl border border-stone-200 px-3 py-2.5 text-center text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100" />
+          <div class="mt-4 flex gap-2">
+            <button type="button" onclick="closeModal()" class="flex-1 rounded-xl bg-stone-100 py-2.5 text-sm font-bold text-stone-600 active:scale-95">ยกเลิก</button>
+            <button type="submit" class="flex-1 rounded-xl bg-brand-600 py-2.5 text-sm font-bold text-white active:scale-95">บันทึก</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `);
+  document.getElementById('staff-code-change-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const code = document.getElementById('staff-code-change-input').value.trim();
+    if (!code) return;
+    saveStaffCode(code);
+    state.staffCode = code;
+    closeModal();
+    renderPage();
+  });
+}
+
+async function initApp() {
+  await ensureStaffCode();
+  const appEl = document.getElementById('app');
+  appEl.innerHTML = `
+    <div class="flex h-[70vh] flex-col items-center justify-center gap-3 text-center">
+      <div class="h-10 w-10 animate-spin rounded-full border-4 border-brand-200 border-t-brand-600"></div>
+      <p class="text-sm text-stone-500">กำลังโหลดข้อมูลจาก Supabase...</p>
+    </div>`;
+  try {
+    const [p, ps, ac] = await Promise.all([fetchProductsFromCloud(), fetchPendingFromCloud(), fetchAdminCredsFromCloud()]);
+    products = p;
+    pendingSubmissions = ps;
+    adminCreds = ac;
+    renderPage();
+    setupRealtimeSync();
+  } catch (err) {
+    console.error('initApp failed:', err);
+    const errDetail = (err && (err.message || err.error_description || err.hint || err.details)) || (typeof err === 'string' ? err : JSON.stringify(err));
+    appEl.innerHTML = `
+      <div class="flex h-[70vh] flex-col items-center justify-center gap-3 px-6 text-center">
+        <p class="text-3xl">📡</p>
+        <p class="text-sm font-semibold text-stone-700">เชื่อมต่อ Supabase ไม่สำเร็จ</p>
+        <p class="text-xs text-stone-400">ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต หรือตั้งค่า Supabase (URL/Key/ตาราง) แล้วลองโหลดหน้านี้ใหม่อีกครั้งค่ะ</p>
+        <p class="mt-1 max-w-xs break-words rounded-xl bg-stone-100 px-3 py-2 text-left text-[11px] text-stone-500">${escapeHtml(errDetail)}</p>
+        <button onclick="location.reload()" class="mt-2 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white active:scale-95">โหลดหน้านี้ใหม่</button>
+      </div>`;
+  }
+}
+initApp();
+
+// ==================== Lock zoom (กันซูมเข้า-ออก) ====================
+// บางเวอร์ชันของ iOS ไม่สนใจ user-scalable=no ใน viewport meta จึงกันซ้ำด้วย JS
+document.addEventListener('gesturestart', (e) => e.preventDefault());
+document.addEventListener('gesturechange', (e) => e.preventDefault());
+document.addEventListener('touchmove', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+let lastTapTime = 0;
+document.addEventListener('touchend', (e) => {
+  const now = Date.now();
+  if (now - lastTapTime < 300) e.preventDefault();
+  lastTapTime = now;
+}, { passive: false });
+</script>
+</body>
+</html>
