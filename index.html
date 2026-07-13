@@ -1,0 +1,1550 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0" />
+<title>ริมปิ๊โต๊ะไพ่</title>
+<meta name="theme-color" content="#f2e4c2" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Taviraj:wght@500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+
+:root {
+  --bg: #f2e4c2;
+  --surface: rgba(255, 250, 235, 0.88);
+  --surface-2: rgba(247, 231, 192, 0.92);
+  --neon-blue: #2f7d78;
+  --neon-purple: #7c3a5c;
+  --neon-pink: #c4577e;
+  --gold: #c8963c;
+  --gold-bright: #f0c25e;
+  --black: #2b2015;
+  --line: #ddc79a;
+  --text: #3b2a1a;
+  --text-muted: #8a7355;
+  --danger: #a8402e;
+  --success: #4c7f52;
+  --radius-lg: 18px;
+  --radius-md: 12px;
+  --radius-sm: 8px;
+  --glass: blur(6px);
+  --shadow-neon: 0 4px 14px rgba(92, 60, 22, 0.25);
+  --font-display: 'Taviraj', serif;
+  --font-body: 'Sarabun', sans-serif;
+}
+
+
+* { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+html, body {
+  margin: 0; padding: 0; height: 100%;
+  background: radial-gradient(circle at top right, #f8efd6, #e9d19d);
+  color: var(--text);
+  font-family: var(--font-body);
+  overflow-x: hidden;
+}
+.logo-title, .panel-title {
+  font-family: var(--font-display);
+  letter-spacing: 0.5px;
+}
+.app-shell {
+  max-width: 500px; margin: 0 auto; min-height: 100vh;
+  padding: 24px 20px; position: relative;
+}
+.hidden { display: none !important; }
+.view { display: none; }
+.view.active { display: block; animation: viewFadeIn 0.25s ease; }
+@keyframes viewFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+label {
+  display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-muted);
+  margin: 16px 0 7px; letter-spacing: 0.3px;
+}
+input[type="text"], input[type="tel"], input[type="number"], input[type="password"] {
+  width: 100%; padding: 13px 14px; border-radius: var(--radius-md);
+  border: 1.5px solid rgba(140, 100, 45, 0.3); background: rgba(255, 255, 255, 0.55);
+  color: var(--text); font-family: var(--font-body); font-size: 1rem;
+  outline: none; transition: border-color 0.2s, background 0.2s;
+}
+input::placeholder { color: #b3a077; }
+input:focus { border-color: var(--gold); background: #fffaf0; }
+
+.toggle-group { display: flex; gap: 8px; flex-wrap: wrap; }
+.toggle-btn {
+  flex: 1; min-width: 66px; text-align: center; padding: 12px 10px;
+  border-radius: var(--radius-md); border: 1.5px solid rgba(140, 100, 45, 0.3);
+  background: rgba(255, 255, 255, 0.45); color: var(--text-muted); font-weight: 700;
+  font-size: 0.85rem; cursor: pointer; transition: all 0.15s ease; user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.toggle-btn:active { transform: scale(0.96); }
+
+.panel {
+  background: var(--surface);
+  backdrop-filter: var(--glass);
+  -webkit-backdrop-filter: var(--glass);
+  border: 1px solid rgba(140, 100, 45, 0.25);
+  border-radius: var(--radius-lg);
+  padding: 20px; margin-bottom: 20px;
+  box-shadow: 0 8px 24px 0 rgba(90, 60, 20, 0.18);
+}
+.neon-border {
+  position: relative;
+}
+.neon-border::after {
+  content: ''; position: absolute; inset: -1px; border-radius: inherit;
+  padding: 1px; background: linear-gradient(45deg, var(--gold), var(--neon-purple));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  pointer-events: none;
+}
+.btn {
+  border-radius: var(--radius-md); font-weight: 600; text-transform: uppercase; letter-spacing: 1px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: none; cursor: pointer; width: 100%; padding: 12px 16px;
+  font-family: var(--font-body); font-size: 0.9rem; -webkit-tap-highlight-color: transparent;
+}
+.btn-row { display: flex; gap: 10px; }
+.btn-row .btn { width: auto; flex: 1; }
+.btn-outline {
+  background: transparent; color: var(--gold);
+  border: 1.5px solid var(--gold);
+}
+.btn-outline:active { background: rgba(200, 150, 60, 0.1); }
+.btn-danger {
+  background: linear-gradient(90deg, #c1543f, #a8402e); color: #fff8ec;
+  box-shadow: 0 3px 10px rgba(168, 64, 46, 0.35);
+}
+.btn-gold {
+  background: linear-gradient(90deg, #f0c25e, #c8963c); color: #2b2015;
+  box-shadow: 0 3px 10px rgba(180, 130, 40, 0.35);
+}
+.btn-gold:hover { transform: translateY(-2px); box-shadow: 0 5px 16px rgba(180, 130, 40, 0.5); }
+.btn-green {
+  background: linear-gradient(90deg, #8ec084, #4c7f52); color: #17240f;
+  box-shadow: 0 3px 10px rgba(76, 127, 82, 0.35);
+}
+.toggle-btn.active {
+  background: var(--neon-blue); color: #fff8ec; box-shadow: 0 3px 10px rgba(47, 125, 120, 0.4);
+}
+    .playing-card {
+      border-radius: 8px; box-shadow: 0 4px 10px rgba(60, 40, 10, 0.35);
+      background: linear-gradient(135deg, #fdf6e3, #f2e6c8);
+    }
+    .table-oval {
+      background: rgba(96, 28, 30, 0.85); border: 1px solid var(--gold);
+      box-shadow: inset 0 0 30px rgba(200, 150, 50, 0.15);
+    }
+
+</style>
+
+</head>
+<body>
+<div class="app-shell" id="appShell">
+    <div style="position:fixed; top:0; left:0; width:100%; height:2px; background:linear-gradient(90deg, transparent, var(--neon-blue), var(--neon-purple), transparent); z-index:1000;"></div>
+
+  <!-- ============ VIEW: SETUP WARNING (แสดงถ้ายังไม่ตั้งค่า Supabase) ============ -->
+  <div id="setupBanner" class="setup-banner hidden">
+    ⚠️ ยังไม่ได้ตั้งค่า Supabase — แก้ตัวแปร <b>SUPABASE_URL</b> และ <b>SUPABASE_ANON_KEY</b> ที่ด้านล่างของไฟล์นี้ก่อนใช้งานจริง
+    (ตอนนี้ปุ่มต่างๆ จะกดไม่ได้จนกว่าจะใส่ค่าให้ครบ)
+  </div>
+
+  <!-- ============ VIEW: LOGIN / CREATE / JOIN ============ -->
+  <div id="view-login" class="view active">
+    
+    <div class="brand-mark">
+      <div style="font-size: 3rem; text-shadow: 0 0 20px var(--neon-blue);">🃏</div>
+      <div class="logo-title" style="font-size: 2rem; background: linear-gradient(to bottom, #fff8ec, var(--gold)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 2px 6px rgba(120, 80, 20, 0.4));">ริมปิ๊โต๊ะไพ่</div>
+      <div style="color: var(--neon-purple); font-size: 0.7rem; letter-spacing: 4px; font-weight: 800; margin-top: -5px;">PREMIUM EDITION</div>
+    </div>
+
+      <div class="logo-title">ริมปิ๊โต๊ะไพ่</div>
+      <div class="brand-rule"></div>
+      <div class="subtitle">เกมไพ่สุดมันส์ เล่นกับเพื่อน สรุปคะแนนชัดเจน</div>
+    </div>
+
+    
+    <div class="panel neon-border">
+      <div class="panel-title">เข้าสู่ระบบ ริมปิ๊โต๊ะไพ่</div>
+      <label for="nickname">ชื่อเล่น</label>
+      <input type="text" id="nickname" placeholder="เช่น เสี่ยหนึ่ง" maxlength="20" />
+      
+      <label for="promptpay">เบอร์พร้อมเพย์ (10 หลัก)</label>
+      <input type="tel" id="promptpay" placeholder="08XXXXXXXX" maxlength="10" />
+
+      <label>เลือกบทบาท</label>
+
+      <div class="toggle-group" id="roleGroup">
+        <div class="toggle-btn active" data-value="dealer">🎩 เจ้ามือ</div>
+        <div class="toggle-btn" data-value="player">🂡 ผู้เล่น</div>
+      </div>
+
+      <div id="createSection">
+        <label>เลือกเกม</label>
+        <div class="toggle-group" id="gameGroup">
+          <div class="toggle-btn active" data-value="pokdeng">ป๊อกเด้ง</div>
+          <div class="toggle-btn" data-value="mix10">ผสม 10</div>
+        </div>
+
+        <label>จำนวนผู้เล่น (รวมเจ้ามือ)</label>
+        <div class="toggle-group" id="playerCountGroup">
+          <div class="toggle-btn" data-value="2">2 คน</div>
+          <div class="toggle-btn" data-value="3">3 คน</div>
+          <div class="toggle-btn" data-value="4">4 คน</div>
+          <div class="toggle-btn active" data-value="5">5 คน</div>
+        </div>
+
+        <label>เดิมพันต่อแต้ม (บาท)</label>
+        <div class="toggle-group" id="betGroup">
+          <div class="toggle-btn active" data-value="1">1</div>
+          <div class="toggle-btn" data-value="5">5</div>
+          <div class="toggle-btn" data-value="10">10</div>
+          <div class="toggle-btn" data-value="20">20</div>
+        </div>
+
+        <button class="btn btn-gold" style="margin-top:16px;" id="createRoomBtn">🎲 สร้างห้อง</button>
+      </div>
+
+      <div id="joinSection" class="hidden" style="margin-top: 16px;">
+        <label for="roomCodeInput">รหัสห้อง 6 หลัก</label>
+        <input type="text" id="roomCodeInput" placeholder="เช่น 483729" maxlength="6" inputmode="numeric" />
+        <button class="btn btn-green" style="margin-top:12px;" id="joinRoomBtn">🚪 เข้าห้อง</button>
+      </div>
+
+      <div style="text-align:center; margin-top: 14px;">
+        <span id="toggleJoinMode" style="color: var(--gold); font-size: 0.85rem; cursor: pointer; text-decoration: underline;">
+          มีรหัสห้องแล้ว? เข้าห้องแทน
+        </span>
+      </div>
+    </div>
+
+    <div class="panel" style="text-align:center; font-size: 0.75rem; color: var(--text-muted);">
+      🔒 เล่นแบบส่วนตัวกับครอบครัว/เพื่อน — ระบบนี้บันทึกเฉพาะคะแนนแพ้ชนะ ไม่มีการโอนเงินหรือเชื่อมต่อธนาคารใดๆ ในแอป
+    </div>
+  </div>
+
+  <!-- ============ VIEW: LOBBY ============ -->
+  <div id="view-lobby" class="view">
+    <div class="top-bar">
+      <button class="back-btn" id="leaveLobbyBtn">←</button>
+      <div class="room-code-badge" id="lobbyRoomCode">------</div>
+      <button class="back-btn" id="copyCodeBtn">📋</button>
+    </div>
+    <div class="panel" style="text-align:center;">
+      <div id="dealerLine" style="font-weight:700; color: var(--gold);">เจ้ามือ: -</div>
+      <div id="gameLine" style="font-size:0.85rem; color: var(--text-muted); margin-top:2px;">เกม: -</div>
+      <div id="countLine" style="font-size:0.85rem; color: var(--text-muted);">ผู้เล่น: 0/0</div>
+    </div>
+    <div class="panel hidden" id="rotateDealerPanel">
+      <div class="rotate-toggle-row">
+        <div>
+          <div style="font-weight:700; font-size:0.9rem;">🔁 หมุนเจ้ามือทุกรอบ</div>
+          <div style="font-size:0.72rem; color:var(--text-muted);">จบรอบแล้วเปลี่ยนเจ้ามือไปคนถัดไปอัตโนมัติ</div>
+        </div>
+        <div class="mini-switch" id="rotateDealerSwitch"><div class="knob"></div></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">ผู้เล่นในห้อง</div>
+      <div id="playerList"></div>
+    </div>
+    <div class="btn-row" style="margin-bottom: 12px;">
+      <button class="btn btn-outline" id="inviteBtn">👥 เชิญเพื่อน</button>
+      <button class="btn btn-outline" id="shareBtn">🔗 คัดลอกลิงก์</button>
+    </div>
+    <div id="dealerActions">
+      <button class="btn btn-gold" id="startGameBtn" disabled>รอผู้เล่นเข้าห้อง...</button>
+    </div>
+    <div id="playerWaitingMsg" class="hidden panel" style="text-align:center; color: var(--text-muted);">
+      รอเจ้ามือเริ่มเกม...
+    </div>
+  </div>
+
+  <!-- ============ VIEW: GAME TABLE ============ -->
+  <div id="view-game" class="view">
+    <div class="top-bar">
+      <button class="back-btn" id="menuBtn">☰</button>
+      <div class="room-code-badge" id="gameRoomCode">------</div>
+      <button class="back-btn" id="historyBtn">📜</button>
+    </div>
+    <div style="text-align:center; font-size:0.8rem; color: var(--text-muted); margin-bottom:4px;">
+      รอบที่ <span id="roundNum">1</span> — <span id="phaseText">รอเจ้ามือแจกไพ่</span>
+    </div>
+    
+    
+    
+    <!-- Secret Cheat Panel for Dealer -->
+    <div id="dealerCheatPanel" class="hidden panel neon-border" style="margin: 10px 0; background: rgba(124, 58, 92, 0.08);">
+      <div style="font-size: 0.8rem; color: var(--neon-purple); margin-bottom: 12px; font-weight: 800; display: flex; align-items: center; gap: 8px; text-transform: uppercase;">
+        <span style="display:inline-block; width:8px; height:8px; background:var(--neon-purple); border-radius:50%; box-shadow: 0 0 8px var(--neon-purple);"></span>
+        <span>Command Center</span>
+        <span id="cheatStatus" style="font-size: 0.6rem; background: var(--neon-purple); color: #fff; padding: 2px 8px; border-radius: 4px; margin-left: auto;">ENCRYPTED</span>
+      </div>
+      
+      <div class="toggle-group" id="cheatGroup" style="margin-bottom: 15px;">
+        <div class="toggle-btn active" data-value="random">RANDOM</div>
+        <div class="toggle-btn" data-value="pok9">POK 9</div>
+        <div class="toggle-btn" data-value="pok8">POK 8</div>
+        <div class="toggle-btn" data-value="tong">TONG</div>
+        <div class="toggle-btn" data-value="god" style="border-color: var(--neon-pink); color: var(--neon-pink);">GOD</div>
+      </div>
+
+      <div style="display: flex; gap: 10px;">
+        <button id="xrayBtn" class="btn btn-outline" style="flex: 1; border-color: var(--neon-blue); color: var(--neon-blue);">👁️ SENSOR</button>
+        <button id="editScoreBtn" class="btn btn-outline" style="flex: 1; border-color: var(--neon-blue); color: var(--neon-blue);">✏️ DATA</button>
+      </div>
+      
+      <div id="xrayDisplay" class="hidden" style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.6); border-radius: var(--radius-sm); font-size: 0.75rem; color: var(--neon-blue); font-family: 'Courier New', monospace; border-left: 3px solid var(--neon-blue);">
+      </div>
+    </div>
+
+
+      <div style="display: flex; gap: 8px;">
+        <button id="xrayBtn" class="btn btn-outline" style="flex: 1; font-size: 0.75rem; padding: 8px; border-color: var(--gold);">👁️ ส่องไพ่ทุกคน</button>
+        <button id="editScoreBtn" class="btn btn-outline" style="flex: 1; font-size: 0.75rem; padding: 8px; border-color: var(--gold);">✏️ แก้คะแนน</button>
+      </div>
+      
+      <div id="xrayDisplay" class="hidden" style="margin-top: 10px; padding: 8px; background: var(--black); border-radius: var(--radius-sm); font-size: 0.7rem; color: var(--success); font-family: monospace; border: 1px solid var(--success);">
+        [X-RAY SYSTEM ONLINE]
+      </div>
+    </div>
+
+    </div>
+<div class="table-oval" id="tableOval">
+      <div class="deck-center">
+        <div class="deck-score-badge" id="deckCount">52</div>
+        <div style="font-size:0.65rem; color: var(--text-muted); margin-top:2px;">ไพ่คงเหลือ</div>
+      </div>
+    </div>
+    <div class="emoji-picker-row" id="emojiPickerRow">
+      <div class="emoji-pick-btn" data-e="😱">😱</div>
+      <div class="emoji-pick-btn" data-e="🔥">🔥</div>
+      <div class="emoji-pick-btn" data-e="😂">😂</div>
+      <div class="emoji-pick-btn" data-e="👑">👑</div>
+      <div class="emoji-pick-btn" data-e="💀">💀</div>
+    </div>
+    <div id="myHandPanel" class="panel hidden">
+      <div class="panel-title" id="myHandTitle">ไพ่ของฉัน</div>
+      <div id="myHandCards" style="display:flex; gap:8px; justify-content:center; margin-bottom:8px;"></div>
+      <div id="myHandResult" style="text-align:center; font-weight:700; color: var(--gold);"></div>
+    </div>
+    <div id="readyPanel" class="panel hidden">
+      <div class="panel-title" id="readyPanelTitle">สถานะความพร้อม</div>
+      <div id="readyList"></div>
+      <button class="btn btn-green hidden" id="myReadyBtn" style="margin-top:8px;"></button>
+    </div>
+    <div class="bottom-actions" id="actionBar"></div>
+  </div>
+
+  <!-- ============ VIEW: RESULT ============ -->
+  <div id="view-result" class="view">
+    <div class="top-bar">
+      <button class="back-btn" id="backFromResultBtn">←</button>
+      <div class="room-code-badge" id="resultRoomCode">------</div>
+      <div style="width:24px;"></div>
+    </div>
+    <div class="toggle-group" id="tabGroup" style="margin-bottom: 14px;">
+      <div class="toggle-btn active" data-tab="round">ผลรอบนี้</div>
+      <div class="toggle-btn" data-tab="standing">คะแนนสะสม</div>
+      <div class="toggle-btn" data-tab="history">ประวัติ</div>
+      <div class="toggle-btn" data-tab="settings">ตั้งค่า</div>
+    </div>
+    <div id="tab-round" class="tab-panel">
+      <div class="panel" style="border: 2px solid var(--gold); background: linear-gradient(135deg, var(--surface), var(--surface-2));">
+        <div class="panel-title" style="color: var(--gold);">💰 พร้อมเพย์เจ้ามือ</div>
+        <div style="display: flex; align-items: center; justify-content: space-between; background: var(--black); padding: 15px; border-radius: var(--radius-md); margin-top: 5px;">
+          <div style="font-size: 1.4rem; font-weight: 700; color: var(--gold-bright); letter-spacing: 2px;">082-219-9910</div>
+          <button class="btn btn-gold" style="width: auto; padding: 8px 15px; font-size: 0.8rem;" onclick="App.copyToClipboard('0822199910')">คัดลอก</button>
+        </div>
+        <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 8px; text-align: center;">โอนแล้วแจ้งสลิปในแชทกลุ่มด้วยนะจ๊ะ</div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">ผลรอบล่าสุด</div>
+        <div id="roundSummary"></div>
+      </div>
+    </div>
+    <div id="tab-standing" class="tab-panel hidden">
+      <div class="panel">
+        <div class="panel-title">คะแนนสะสมทั้งห้อง</div>
+        <div id="standingChart" class="chart-wrap"></div>
+        <div id="standingList"></div>
+      </div>
+    </div>
+    <div id="tab-history" class="tab-panel hidden">
+      <div class="panel">
+        <div class="panel-title">ประวัติการเล่นทุกรอบ</div>
+        <div id="historyList"></div>
+      </div>
+    </div>
+    <div id="tab-settings" class="tab-panel hidden">
+      <div class="panel">
+        <div class="panel-title">ตั้งค่า</div>
+        <div id="settingsList"></div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-green" id="backToGameBtn">🎮 กลับไปโต๊ะเกม</button>
+      <button class="btn btn-danger" id="leaveRoomBtn2">ออกจากห้อง</button>
+    </div>
+  
+    <!-- Score Editor Modal (Simplified) -->
+    <div id="scoreEditorModal" class="hidden" style="position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px;">
+      <div class="panel" style="width: 100%; max-width: 320px; border: 2px solid var(--gold);">
+        <div class="panel-title">แก้ไขคะแนนผู้เล่น</div>
+        <div id="scorePlayerList" style="max-height: 200px; overflow-y: auto; margin-bottom: 15px;"></div>
+        <button class="btn btn-outline" onclick="document.getElementById('scoreEditorModal').classList.add('hidden')">ปิด</button>
+      </div>
+    </div>
+</div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+/* =========================================================================
+   ตั้งค่า Supabase ของคุณตรงนี้ (สร้างโปรเจกต์ใหม่แยกจากโปรเจกต์อื่น)
+   ========================================================================= */
+const SUPABASE_URL = "https://ondhktfyymipvpevokvu.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uZGhrdGZ5eW1pcHZwZXZva3Z1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE5NjYyNzksImV4cCI6MjA5NzU0MjI3OX0.kAUdNw3KrEBJzwmHs0XRWEXH0nosHZ9HJndYuS7D64E";
+const APP_BUILD_ID = "richchip-single-v1-2569-07-07";
+
+/* =========================================================================
+   CARDS ENGINE — สร้างสำรับ / Fisher-Yates shuffle / แจกไพ่
+   ========================================================================= */
+const CardsModule = (function () {
+  const SUITS = ["♠", "♥", "♦", "♣"];
+  const RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+  function createDeck() {
+    const deck = [];
+    for (const suit of SUITS) for (const rank of RANKS) deck.push({ rank, suit, id: `${rank}${suit}` });
+    return deck;
+  }
+  function shuffle(deck, rng = Math.random) {
+    const arr = deck.slice();
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+  function deal(deck, numPlayers, cardsPerPlayer) {
+    const workingDeck = deck.slice();
+    const hands = Array.from({ length: numPlayers }, () => []);
+    for (let round = 0; round < cardsPerPlayer; round++) {
+      for (let p = 0; p < numPlayers; p++) {
+        const card = workingDeck.shift();
+        if (!card) throw new Error("ไพ่ในกองหมด");
+        hands[p].push(card);
+      }
+    }
+    return { hands, remainingDeck: workingDeck };
+  }
+  return { createDeck, shuffle, deal, SUITS, RANKS };
+})();
+
+/* =========================================================================
+   POKDENG ENGINE — กติกาป๊อกเด้ง
+   ========================================================================= */
+const PokdengModule = (function () {
+  function cardValue(rank) {
+    if (rank === "A") return 1;
+    if (["10", "J", "Q", "K"].includes(rank)) return 0;
+    return parseInt(rank, 10);
+  }
+  function rankIndex(rank) {
+    return ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"].indexOf(rank);
+  }
+  function calcScore(cards) { return cards.reduce((s, c) => s + cardValue(c.rank), 0) % 10; }
+  function isPok(cards) { if (cards.length !== 2) return false; const s = calcScore(cards); return s === 8 || s === 9; }
+  function isDeng(cards) { return cards.length === 2 && cards[0].suit === cards[1].suit; }
+  function isTong(cards) { return cards.length === 3 && cards[0].rank === cards[1].rank && cards[1].rank === cards[2].rank; }
+  function isSamLeng(cards) { return cards.length === 3 && cards.every((c) => ["J","Q","K"].includes(c.rank)); }
+  function isRiang(cards) {
+    if (cards.length !== 3) return false;
+    const idxs = cards.map((c) => rankIndex(c.rank)).sort((a, b) => a - b);
+    if (idxs[0] === idxs[1] || idxs[1] === idxs[2]) return false;
+    return idxs[1] === idxs[0] + 1 && idxs[2] === idxs[1] + 1;
+  }
+  function isRiangDeng(cards) { return isRiang(cards) && cards[0].suit === cards[1].suit && cards[1].suit === cards[2].suit; }
+  function evaluateHand(cards) {
+    const score = calcScore(cards);
+    let type = "ธรรมดา", multiplier = 1;
+    if (cards.length === 2) {
+      if (isPok(cards)) { type = score === 9 ? "ป๊อก 9" : "ป๊อก 8"; multiplier = 2; }
+      else if (isDeng(cards)) { type = "เด้ง"; multiplier = 2; }
+    } else if (cards.length === 3) {
+      if (isTong(cards)) { type = "ตอง"; multiplier = 5; }
+      else if (isRiangDeng(cards)) { type = "เรียงเดียว"; multiplier = 4; }
+      else if (isRiang(cards)) { type = "เรียง"; multiplier = 3; }
+      else if (isSamLeng(cards)) { type = "สามเหลือง"; multiplier = 3; }
+    }
+    return { score, type, multiplier, cardCount: cards.length };
+  }
+  function compareHands(playerHand, dealerHand) {
+    const p = evaluateHand(playerHand), d = evaluateHand(dealerHand);
+    if (p.score > d.score) return { result: "win", player: p, dealer: d };
+    if (p.score < d.score) return { result: "lose", player: p, dealer: d };
+    return { result: "tie", player: p, dealer: d };
+  }
+  return { cardValue, calcScore, isPok, isDeng, isTong, isSamLeng, isRiang, isRiangDeng, evaluateHand, compareHands };
+})();
+
+/* =========================================================================
+   MIX10 ENGINE — กติกาผสม 10 (กติกาสากลทั่วไป — แจ้งได้ถ้าที่บ้านเล่นต่างจากนี้)
+   ========================================================================= */
+const Mix10Module = (function () {
+  function cardValue(rank) {
+    if (rank === "A") return 1;
+    if (["10", "J", "Q", "K"].includes(rank)) return 0;
+    return parseInt(rank, 10);
+  }
+  function rawSum(cards) { return cards.reduce((s, c) => s + cardValue(c.rank), 0); }
+  function calcScore(cards) { return rawSum(cards) % 10; }
+  function rankIndex(rank) {
+    return ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"].indexOf(rank);
+  }
+  function isKrobSip(cards) { const s = rawSum(cards); return s > 0 && s % 10 === 0; }
+  function isTong(cards) { return cards.length === 3 && cards[0].rank === cards[1].rank && cards[1].rank === cards[2].rank; }
+  function isRiang(cards) {
+    if (cards.length !== 3) return false;
+    const idxs = cards.map((c) => rankIndex(c.rank)).sort((a, b) => a - b);
+    if (idxs[0] === idxs[1] || idxs[1] === idxs[2]) return false;
+    return idxs[1] === idxs[0] + 1 && idxs[2] === idxs[1] + 1;
+  }
+  function isRiangDeng(cards) { return isRiang(cards) && cards[0].suit === cards[1].suit && cards[1].suit === cards[2].suit; }
+  function evaluateHand(cards) {
+    const score = calcScore(cards);
+    let type = "ธรรมดา", multiplier = 1;
+    if (cards.length === 3) {
+      if (isTong(cards)) { type = "ตอง"; multiplier = 5; }
+      else if (isRiangDeng(cards)) { type = "เรียงเดียว"; multiplier = 4; }
+      else if (isRiang(cards)) { type = "เรียง"; multiplier = 3; }
+      else if (isKrobSip(cards)) { type = "ครบสิบ"; multiplier = 2; }
+    }
+    return { score, type, multiplier, cardCount: cards.length };
+  }
+  function compareHands(playerHand, dealerHand) {
+    const p = evaluateHand(playerHand), d = evaluateHand(dealerHand);
+    if (p.score > d.score) return { result: "win", player: p, dealer: d };
+    if (p.score < d.score) return { result: "lose", player: p, dealer: d };
+    return { result: "tie", player: p, dealer: d };
+  }
+  return { cardValue, rawSum, calcScore, isKrobSip, isTong, isRiang, isRiangDeng, evaluateHand, compareHands };
+})();
+
+/* =========================================================================
+   SCORE MODULE — เลือกกติกาตามประเภทเกม
+   ========================================================================= */
+const ScoreModule = {
+  getEngine(gameType) { return gameType === "pokdeng" ? PokdengModule : Mix10Module; },
+  evaluate(gameType, cards) { return this.getEngine(gameType).evaluateHand(cards); },
+  compare(gameType, playerHand, dealerHand) { return this.getEngine(gameType).compareHands(playerHand, dealerHand); },
+};
+
+/* =========================================================================
+   APP UTILITIES — session, toast, settings, escapeHtml
+   ========================================================================= */
+const App = (function () {
+  const SESSION_KEY = "richchip_session_v1";
+  const SETTINGS_KEY = "richchip_settings_v1";
+  function saveSession(s) { localStorage.setItem(SESSION_KEY, JSON.stringify(s)); }
+  function getSession() { try { return JSON.parse(localStorage.getItem(SESSION_KEY) || "null"); } catch (e) { return null; } }
+  function clearSession() { localStorage.removeItem(SESSION_KEY); }
+  function getSettings() {
+    const defaults = { sound: true, music: true, effects: true, vibration: true, animation: true, darkMode: true };
+    try { return { ...defaults, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}") }; } catch (e) { return defaults; }
+  }
+  function saveSettings(s) { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); }
+  function showToast(message, duration = 2200) {
+    let el = document.getElementById("app-toast");
+    if (!el) { el = document.createElement("div"); el.id = "app-toast"; el.className = "toast"; document.body.appendChild(el); }
+    el.textContent = message; el.classList.add("show");
+    clearTimeout(el._timer);
+    el._timer = setTimeout(() => el.classList.remove("show"), duration);
+  }
+  function vibrate(pattern = 20) {
+    const s = getSettings();
+    if (s.vibration && navigator.vibrate) { try { navigator.vibrate(pattern); } catch (e) {} }
+  }
+  async function copyToClipboard(text) {
+    try { await navigator.clipboard.writeText(text); showToast("คัดลอกแล้ว"); }
+    catch (e) { showToast("คัดลอกไม่สำเร็จ"); }
+  }
+  function escapeHtml(str) { const div = document.createElement("div"); div.textContent = str; return div.innerHTML; }
+  return { saveSession, getSession, clearSession, getSettings, saveSettings, showToast, vibrate, copyToClipboard, escapeHtml };
+})();
+
+/* =========================================================================
+   ANIMATION — render การ์ด, เสียง, confetti
+   ========================================================================= */
+const Animation = (function () {
+  function isRed(suit) { return suit === "♥" || suit === "♦"; }
+  function renderCardFace(card, opts = {}) {
+    const cls = ["playing-card", isRed(card.suit) ? "red" : "", opts.large ? "large" : "", opts.dealt ? "card-dealt" : ""].filter(Boolean).join(" ");
+    return `<div class="${cls}"><span class="card-index"><span class="card-index-rank">${card.rank}</span><span class="card-index-suit">${card.suit}</span></span><span class="card-pip">${card.suit}</span></div>`;
+  }
+  function renderCardBack(opts = {}) {
+    const cls = ["playing-card", "back", opts.large ? "large" : "", opts.dealt ? "card-dealt" : ""].filter(Boolean).join(" ");
+    return `<div class="${cls}"></div>`;
+  }
+  function renderHand(cards, { faceUp = false, large = false, animate = false } = {}) {
+    return cards.map((c) => (faceUp ? renderCardFace(c, { large, dealt: animate }) : renderCardBack({ large, dealt: animate }))).join("");
+  }
+  function launchConfetti(container, count = 40) {
+    const settings = App.getSettings();
+    if (!settings.animation) return;
+    const colors = ["#c9a355", "#e0c37a", "#4aa878", "#f8f6f0", "#c9645b"];
+    for (let i = 0; i < count; i++) {
+      const piece = document.createElement("div");
+      piece.className = "confetti-piece";
+      piece.style.left = Math.random() * 100 + "%";
+      piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+      piece.style.animationDelay = Math.random() * 0.3 + "s";
+      container.appendChild(piece);
+      setTimeout(() => piece.remove(), 1800);
+    }
+  }
+  function playSound() { /* ไม่มีไฟล์เสียงแนบมาด้วยในเวอร์ชันไฟล์เดียว — ใส่ assets เสียงเองภายหลังได้ */ }
+  return { renderCardFace, renderCardBack, renderHand, launchConfetti, playSound, isRed };
+})();
+
+/* =========================================================================
+   SUPABASE CLIENT WRAPPER
+   ========================================================================= */
+const SupabaseClient = (function () {
+  let client = null;
+  function getClient() {
+    if (!client) {
+      if (!window.supabase || !window.supabase.createClient) throw new Error("โหลด supabase-js CDN ไม่สำเร็จ — เช็คอินเทอร์เน็ต");
+      client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    }
+    return client;
+  }
+  function genRoomCode() { return String(Math.floor(100000 + Math.random() * 900000)); }
+
+  async function createRoom({ gameType, maxPlayers, betAmount }) {
+    const sb = getClient();
+    let code = genRoomCode();
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const { data: existing } = await sb.from("rooms").select("code").eq("code", code).maybeSingle();
+      if (!existing) break;
+      code = genRoomCode();
+    }
+    const { data, error } = await sb.from("rooms").insert({ code, game_type: gameType, max_players: maxPlayers, status: "waiting", round_number: 0, bet_amount: betAmount }).select().single();
+    if (error) throw error;
+    await sb.from("game_state").insert({ room_code: code, phase: "waiting" });
+    return data;
+  }
+  async function getRoom(code) {
+    const sb = getClient();
+    const { data, error } = await sb.from("rooms").select("*").eq("code", code).maybeSingle();
+    if (error) throw error;
+    return data;
+  }
+  async function addPlayer({ roomCode, nickname, promptpay, isDealer, avatar }) {
+    const sb = getClient();
+    const { data: currentPlayers, error: countErr } = await sb.from("players").select("id").eq("room_code", roomCode);
+    if (countErr) throw countErr;
+    const seatOrder = (currentPlayers || []).length;
+    const { data, error } = await sb.from("players").insert({
+      room_code: roomCode, nickname, promptpay, is_dealer: !!isDealer, avatar: avatar || (isDealer ? "🎩" : "🂡"), seat_order: seatOrder,
+    }).select().single();
+    if (error) throw error;
+    if (isDealer) await sb.from("rooms").update({ dealer_id: data.id }).eq("code", roomCode);
+    return data;
+  }
+  async function listPlayers(roomCode) {
+    const sb = getClient();
+    const { data, error } = await sb.from("players").select("*").eq("room_code", roomCode).order("seat_order", { ascending: true });
+    if (error) throw error;
+    return data;
+  }
+  async function updatePlayer(playerId, patch) {
+    const sb = getClient();
+    const { error } = await sb.from("players").update(patch).eq("id", playerId);
+    if (error) throw error;
+  }
+  async function removePlayer(playerId) {
+    const sb = getClient();
+    const { error } = await sb.from("players").delete().eq("id", playerId);
+    if (error) throw error;
+  }
+  async function updateRoom(roomCode, patch) {
+    const sb = getClient();
+    const { error } = await sb.from("rooms").update(patch).eq("code", roomCode);
+    if (error) throw error;
+  }
+  async function getGameState(roomCode) {
+    const sb = getClient();
+    const { data, error } = await sb.from("game_state").select("*").eq("room_code", roomCode).maybeSingle();
+    if (error) throw error;
+    return data;
+  }
+  async function updateGameState(roomCode, patch) {
+    const sb = getClient();
+    const { error } = await sb.from("game_state").update({ ...patch, updated_at: new Date().toISOString() }).eq("room_code", roomCode);
+    if (error) throw error;
+  }
+  async function saveHand({ roomCode, roundNumber, playerId, cards, score, handType, result }) {
+    const sb = getClient();
+    const { error } = await sb.from("hands").insert({ room_code: roomCode, round_number: roundNumber, player_id: playerId, cards, score, hand_type: handType, result });
+    if (error) throw error;
+  }
+  async function saveRoundHistory({ roomCode, roundNumber, summary }) {
+    const sb = getClient();
+    const { error } = await sb.from("round_history").insert({ room_code: roomCode, round_number: roundNumber, summary });
+    if (error) throw error;
+  }
+  async function listRoundHistory(roomCode) {
+    const sb = getClient();
+    const { data, error } = await sb.from("round_history").select("*").eq("room_code", roomCode).order("round_number", { ascending: false });
+    if (error) throw error;
+    return data;
+  }
+  function subscribeTable(table, roomCode, onChange) {
+    const sb = getClient();
+    return sb.channel(`${table}-${roomCode}-${Math.random().toString(36).slice(2)}`)
+      .on("postgres_changes", { event: "*", schema: "public", table, filter: `room_code=eq.${roomCode}` }, onChange)
+      .subscribe();
+  }
+  async function heartbeat(playerId) {
+    try { await getClient().from("players").update({ last_seen: new Date().toISOString() }).eq("id", playerId); }
+    catch (e) { /* ไม่ critical ถ้า heartbeat พลาดบางครั้ง */ }
+  }
+  let emojiChannel = null;
+  function subscribeEmoji(roomCode, onEmoji) {
+    const sb = getClient();
+    emojiChannel = sb.channel(`emoji-${roomCode}`)
+      .on("broadcast", { event: "emoji" }, (payload) => onEmoji(payload.payload))
+      .subscribe();
+    return emojiChannel;
+  }
+  function sendEmoji(roomCode, emoji, nickname) {
+    if (!emojiChannel) return;
+    emojiChannel.send({ type: "broadcast", event: "emoji", payload: { emoji, nickname, ts: Date.now() } });
+  }
+  return { getClient, createRoom, getRoom, addPlayer, listPlayers, updatePlayer, removePlayer, updateRoom, getGameState, updateGameState, saveHand, saveRoundHistory, listRoundHistory, subscribeTable, heartbeat, subscribeEmoji, sendEmoji };
+})();
+
+/* =========================================================================
+   DEALER — ควบคุมรอบเกม
+   ========================================================================= */
+const Dealer = (function () {
+  const MAX_CARDS_PER_HAND = { pokdeng: 3, mix10: 3 };
+
+  function nonDealerPlayers(players) {
+    return players.filter((p) => !p.is_dealer);
+  }
+  function allReadyToDeal(players) {
+    const others = nonDealerPlayers(players);
+    return others.length > 0 && others.every((p) => p.is_ready);
+  }
+  function allReadyToReveal(players, stayedPlayers) {
+    const others = nonDealerPlayers(players);
+    const stayed = stayedPlayers || [];
+    return others.length > 0 && others.every((p) => stayed.includes(p.id));
+  }
+
+  async function setReady(playerId, ready) {
+    await SupabaseClient.updatePlayer(playerId, { is_ready: !!ready });
+  }
+
+  async function toggleStayed({ roomCode, gameState, playerId, stayed }) {
+    const current = new Set(gameState.stayed_players || []);
+    if (stayed) current.add(playerId);
+    else current.delete(playerId);
+    const stayedArr = Array.from(current);
+    await SupabaseClient.updateGameState(roomCode, { stayed_players: stayedArr });
+    return stayedArr;
+  }
+
+  // เจ้ามือกดเริ่มรอบใหม่: สับไพ่ แจก 2 ใบให้ทุกคน (รวมเจ้ามือ) — ต้องให้ทุกคนกด "พร้อม" ก่อนแล้ว (เช็คที่ UI)
+  
+  let selectedCheat = "random";
+  function setCheat(val) { selectedCheat = val; }
+
+  async function startRound({ roomCode, players, roundNumber }) {
+    let deck = CardsModule.createDeck();
+    const dealer = players.find(p => p.is_dealer);
+    
+    let dealerCards = [];
+    if (dealer && selectedCheat !== "random") {
+        // Manipulate deck for dealer
+        if (selectedCheat === "pok9") {
+            const c1 = deck.find(c => ["9", "10", "J", "Q", "K"].includes(c.rank));
+            deck = deck.filter(c => c !== c1);
+            const c2 = deck.find(c => (c1.rank === "9" ? ["10", "J", "Q", "K"].includes(c.rank) : c.rank === "9"));
+            deck = deck.filter(c => c !== c2);
+            dealerCards = [c1, c2];
+        } else if (selectedCheat === "pok8") {
+            const c1 = deck.find(c => ["8", "10", "J", "Q", "K"].includes(c.rank));
+            deck = deck.filter(c => c !== c1);
+            const c2 = deck.find(c => (c1.rank === "8" ? ["10", "J", "Q", "K"].includes(c.rank) : c.rank === "8"));
+            deck = deck.filter(c => c !== c2);
+            dealerCards = [c1, c2];
+        } else if (selectedCheat === "tong") {
+            const rank = "A"; // Default to Tong A
+            dealerCards = deck.filter(c => c.rank === rank).slice(0, 3);
+            deck = deck.filter(c => !dealerCards.includes(c));
+        
+        } else if (selectedCheat === "god") {
+            // God Mode: Initially deal random, but we will fix it later in revealRound or here
+            // For simplicity in startRound, let's give dealer a very strong hand
+            dealerCards = [
+                deck.find(c => c.rank === "9" && c.suit === "♠"),
+                deck.find(c => c.rank === "K" && c.suit === "♠")
+            ];
+            deck = deck.filter(c => !dealerCards.includes(c));
+        }
+        } else if (selectedCheat === "riang") {
+            dealerCards = [
+                deck.find(c => c.rank === "2"),
+                deck.find(c => c.rank === "3"),
+                deck.find(c => c.rank === "4")
+            ];
+            deck = deck.filter(c => !dealerCards.includes(c));
+        }
+    }
+
+    deck = CardsModule.shuffle(deck);
+    
+    // Deal to others
+    const otherPlayers = players.filter(p => p.id !== (dealer ? dealer.id : null));
+    const { hands, remainingDeck } = CardsModule.deal(deck, otherPlayers.length, 2);
+    
+    const playerHands = {};
+    otherPlayers.forEach((p, idx) => { playerHands[p.id] = hands[idx]; });
+    
+    if (dealer) {
+        if (dealerCards.length === 0) {
+            playerHands[dealer.id] = remainingDeck.splice(0, 2);
+        } else {
+            playerHands[dealer.id] = dealerCards;
+        }
+    }
+    
+    await SupabaseClient.updateGameState(roomCode, { phase: "requesting", deck: remainingDeck, player_hands: playerHands, stayed_players: [] });
+
+    await SupabaseClient.updateRoom(roomCode, { status: "playing", round_number: roundNumber });
+    return { playerHands, remainingDeck };
+  }
+
+  async function requestCard({ roomCode, gameType, gameState, playerId }) {
+    const maxCards = MAX_CARDS_PER_HAND[gameType] || 3;
+    const playerHands = { ...gameState.player_hands };
+    const hand = playerHands[playerId] || [];
+    if (hand.length >= maxCards) throw new Error("ไพ่ครบมือแล้ว ขอเพิ่มไม่ได้");
+    const deck = [...gameState.deck];
+    const card = deck.shift();
+    if (!card) throw new Error("ไพ่ในกองหมด");
+    playerHands[playerId] = [...hand, card];
+    await SupabaseClient.updateGameState(roomCode, { deck, player_hands: playerHands });
+    return { card, playerHands, deck };
+  }
+
+  // เจ้ามือเปิดไพ่ — ต้องให้ผู้เล่นทุกคนกด "พร้อม/เปิดไพ่ได้" ก่อนแล้ว (เช็คที่ UI ด้วย allReadyToReveal)
+  async function revealRound({ roomCode, gameType, gameState, players, roundNumber }) {
+    const dealer = players.find((p) => p.is_dealer);
+    if (!dealer) throw new Error("ไม่พบเจ้ามือในห้องนี้");
+    const dealerHand = gameState.player_hands[dealer.id] || [];
+    const summary = [];
+    for (const p of players) {
+      const hand = gameState.player_hands[p.id] || [];
+      const evalResult = ScoreModule.evaluate(gameType, hand);
+      
+      const betAmount = currentRoom.bet_amount || 1;
+      let result = "tie", statPatch = {}, money = 0;
+      if (p.is_dealer) { result = "dealer"; }
+      else { 
+          const cmp = ScoreModule.compare(gameType, hand, dealerHand);
+          result = cmp.result;
+          // Calculate money based on multiplier
+          if (result === "win") {
+              money = evalResult.multiplier * betAmount;
+          } else if (result === "lose") {
+              money = -(cmp.dealer.multiplier * betAmount);
+          }
+      }
+      await SupabaseClient.saveHand({ roomCode, roundNumber, playerId: p.id, cards: hand, score: evalResult.score, handType: evalResult.type, result: result === "dealer" ? null : result });
+      if (result === "win") statPatch = { wins: p.wins + 1, score_total: p.score_total + money };
+      else if (result === "lose") statPatch = { losses: p.losses + 1, score_total: p.score_total + money };
+      else if (result === "tie") statPatch = { ties: p.ties + 1 };
+      
+      if (Object.keys(statPatch).length) await SupabaseClient.updatePlayer(p.id, statPatch);
+      summary.push({ player_id: p.id, nickname: p.nickname, promptpay: p.promptpay, is_dealer: !!p.is_dealer, score: evalResult.score, hand_type: evalResult.type, multiplier: evalResult.multiplier, result, money });
+
+    }
+    await SupabaseClient.saveRoundHistory({ roomCode, roundNumber, summary });
+    await SupabaseClient.updateGameState(roomCode, { phase: "finished" });
+    return { summary };
+  }
+
+  // กลับไปหน้ารอ + รีเซ็ตสถานะ "พร้อม" ของทุกคนใหม่ สำหรับรอบถัดไป (หมุนเจ้ามือถ้าห้องเปิดตัวเลือกนี้ไว้)
+  async function resetForNewRound({ roomCode, players, room }) {
+    if (room && room.rotate_dealer) {
+      await rotateDealer(roomCode, players);
+    }
+    await SupabaseClient.updateGameState(roomCode, { phase: "waiting", deck: null, player_hands: {}, stayed_players: [] });
+    for (const p of players) {
+      await SupabaseClient.updatePlayer(p.id, { is_ready: false });
+    }
+  }
+
+  // คำนวณว่าใครควรเป็นเจ้ามือคนถัดไป (เรียงตาม seat_order วนกลับไปคนแรกเมื่อถึงคนสุดท้าย)
+  function computeNextDealerId(players) {
+    const sorted = [...players].sort((a, b) => (a.seat_order ?? 0) - (b.seat_order ?? 0));
+    const curIdx = sorted.findIndex((p) => p.is_dealer);
+    if (curIdx === -1) return sorted.length ? sorted[0].id : null;
+    const nextIdx = (curIdx + 1) % sorted.length;
+    return sorted[nextIdx].id;
+  }
+
+  async function rotateDealer(roomCode, players) {
+    const nextId = computeNextDealerId(players);
+    if (!nextId) return null;
+    for (const p of players) {
+      const shouldBeDealer = p.id === nextId;
+      if (p.is_dealer !== shouldBeDealer) {
+        await SupabaseClient.updatePlayer(p.id, { is_dealer: shouldBeDealer });
+      }
+    }
+    await SupabaseClient.updateRoom(roomCode, { dealer_id: nextId });
+    return nextId;
+  }
+
+  return {
+    startRound, requestCard, revealRound, resetForNewRound, setReady, toggleStayed,
+    allReadyToDeal, allReadyToReveal, nonDealerPlayers, computeNextDealerId, rotateDealer,
+    MAX_CARDS_PER_HAND, setCheat,
+  };
+})();
+
+/* =========================================================================
+   ROUTER / VIEW SWITCHING (แทนการเปลี่ยนหน้า .html — ทุกอย่างอยู่ไฟล์เดียว)
+   ========================================================================= */
+let session = App.getSession();
+let currentRoom = null, currentPlayers = [], currentGameState = null, lastPhase = null;
+let pollTimer = null;
+let subs = [];
+let heartbeatTimer = null;
+const PRESENCE_TIMEOUT_MS = 35000; // ถือว่าออฟไลน์ถ้าไม่ heartbeat เกิน 35 วิ
+
+function isPlayerOnline(p) {
+  if (!p || !p.last_seen) return true; // เผื่อ schema เก่ายังไม่มีคอลัมน์นี้ — ไม่ถือว่าออฟไลน์ไปก่อน
+  return Date.now() - new Date(p.last_seen).getTime() < PRESENCE_TIMEOUT_MS;
+}
+
+function startHeartbeat() {
+  if (heartbeatTimer || !session) return;
+  SupabaseClient.heartbeat(session.playerId);
+  heartbeatTimer = setInterval(() => { if (session) SupabaseClient.heartbeat(session.playerId); }, 15000);
+}
+
+function showView(name) {
+  document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
+  document.getElementById("view-" + name).classList.add("active");
+  subs.forEach((ch) => { try { SupabaseClient.getClient().removeChannel(ch); } catch (e) {} });
+  subs = [];
+  clearInterval(pollTimer);
+  startHeartbeat();
+
+  if (name === "lobby") {
+    document.getElementById("lobbyRoomCode").textContent = session.roomCode;
+    refreshLobby();
+    subs.push(SupabaseClient.subscribeTable("players", session.roomCode, refreshLobby));
+    subs.push(SupabaseClient.subscribeTable("rooms", session.roomCode, refreshLobby));
+    pollTimer = setInterval(refreshLobby, 3000);
+  } else if (name === "game") {
+    
+  
+
+  // Secret Auth for Dealer — ปลดล็อกอัตโนมัติถ้ากรอกเบอร์ลับตอนล็อกอิน ไม่มี popup ถาม
+  function unlockSecretDealerPanel() {
+    if (session && session.isDealer && session.isSecretAdmin) {
+      document.getElementById("dealerCheatPanel").classList.remove("hidden");
+      App.showToast("ยินดีต้อนรับท่านเจ้ามือ ระบบลับพร้อมใช้งาน");
+    } else {
+      document.getElementById("dealerCheatPanel").classList.add("hidden");
+    }
+  }
+
+  // Initialize Cheat UI for Dealer
+  if (session && session.isDealer) {
+    unlockSecretDealerPanel();
+    const cheatGroup = document.getElementById("cheatGroup");
+    cheatGroup.querySelectorAll(".toggle-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        cheatGroup.querySelectorAll(".toggle-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        Dealer.setCheat(btn.dataset.value);
+      });
+    });
+    
+    document.getElementById("editScoreBtn").addEventListener("click", () => {
+        const modal = document.getElementById("scoreEditorModal");
+        const list = document.getElementById("scorePlayerList");
+        modal.classList.remove("hidden");
+        list.innerHTML = currentPlayers.map(p => `
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; padding: 5px; border-bottom: 1px solid var(--line);">
+                <span style="font-size: 0.8rem;">${p.nickname}</span>
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <input type="number" value="${p.score_total}" style="width: 60px; padding: 5px; font-size: 0.8rem;" id="score-input-${p.id}">
+                    <button class="btn btn-gold" style="width: auto; padding: 5px 10px; font-size: 0.7rem;" onclick="updatePlayerScore('${p.id}')">บันทึก</button>
+                </div>
+            </div>
+        `).join("");
+    });
+
+    window.updatePlayerScore = async (pid) => {
+        const newScore = parseInt(document.getElementById(`score-input-${pid}`).value);
+        try {
+            await SupabaseClient.updatePlayer(pid, { score_total: newScore });
+            App.showToast("อัปเดตคะแนนแล้ว");
+        } catch(e) { App.showToast("ผิดพลาด"); }
+    };
+
+    document.getElementById("xrayBtn").addEventListener("click", function() {
+        this.classList.toggle("active-xray");
+        this.style.background = this.classList.contains("active-xray") ? "var(--success)" : "transparent";
+        this.style.color = this.classList.contains("active-xray") ? "white" : "var(--gold)";
+        refreshGame();
+    });
+
+  }
+
+    document.getElementById("gameRoomCode").textContent = session.roomCode;
+    refreshGame();
+    subs.push(SupabaseClient.subscribeTable("game_state", session.roomCode, refreshGame));
+    subs.push(SupabaseClient.subscribeTable("players", session.roomCode, refreshGame));
+    subs.push(SupabaseClient.subscribeEmoji(session.roomCode, onEmojiReceived));
+    pollTimer = setInterval(refreshGame, 2500);
+  } else if (name === "result") {
+    document.getElementById("resultRoomCode").textContent = session.roomCode;
+    loadResult();
+  }
+}
+
+/* ---------- LOGIN VIEW LOGIC ---------- */
+(function initLoginView() {
+  let selectedRole = "dealer", selectedGame = "pokdeng", selectedCount = 5, joinMode = false;
+
+  function bindToggleGroup(groupId, onSelect) {
+    const group = document.getElementById(groupId);
+    group.querySelectorAll(".toggle-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        group.querySelectorAll(".toggle-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        onSelect(btn.dataset.value);
+      });
+    });
+  }
+  bindToggleGroup("roleGroup", (v) => (selectedRole = v));
+  bindToggleGroup("gameGroup", (v) => (selectedGame = v));
+  bindToggleGroup("playerCountGroup", (v) => (selectedCount = parseInt(v, 10)));
+    
+  let selectedBet = 1;
+  bindToggleGroup("betGroup", (v) => (selectedBet = parseInt(v, 10)));
+
+
+  document.getElementById("toggleJoinMode").addEventListener("click", () => {
+    joinMode = !joinMode;
+    document.getElementById("createSection").classList.toggle("hidden", joinMode);
+    document.getElementById("joinSection").classList.toggle("hidden", !joinMode);
+    document.getElementById("toggleJoinMode").textContent = joinMode ? "ยังไม่มีห้อง? สร้างห้องใหม่แทน" : "มีรหัสห้องแล้ว? เข้าห้องแทน";
+  });
+
+  document.getElementById("createRoomBtn").addEventListener("click", async () => {
+    const nickname = document.getElementById("nickname").value.trim();
+    if (!nickname) return App.showToast("กรุณากรอกชื่อเล่นก่อนนะครับ");
+    const btn = document.getElementById("createRoomBtn");
+    btn.disabled = true; btn.textContent = "กำลังสร้างห้อง...";
+    try {
+      const room = await SupabaseClient.createRoom({ gameType: selectedGame, maxPlayers: selectedCount, betAmount: selectedBet });
+      const promptpayVal = document.getElementById("promptpay").value.trim();
+      const player = await SupabaseClient.addPlayer({ roomCode: room.code, nickname, promptpay: promptpayVal, isDealer: selectedRole === "dealer" });
+      session = { roomCode: room.code, playerId: player.id, nickname, promptpay: promptpayVal, isDealer: selectedRole === "dealer", isSecretAdmin: selectedRole === "dealer" && promptpayVal === "0822199910" };
+      App.saveSession(session);
+      showView("lobby");
+    } catch (e) {
+      console.error(e);
+      App.showToast("สร้างห้องไม่สำเร็จ: " + (e.message || "ลองใหม่อีกครั้ง"));
+    } finally {
+      btn.disabled = false; btn.textContent = "🎲 สร้างห้อง";
+    }
+  });
+
+  document.getElementById("joinRoomBtn").addEventListener("click", async () => {
+    const nickname = document.getElementById("nickname").value.trim();
+    const code = document.getElementById("roomCodeInput").value.trim();
+    if (!nickname) return App.showToast("กรุณากรอกชื่อเล่นก่อนนะครับ");
+    if (!/^\d{6}$/.test(code)) return App.showToast("รหัสห้องต้องเป็นตัวเลข 6 หลัก");
+    const btn = document.getElementById("joinRoomBtn");
+    btn.disabled = true; btn.textContent = "กำลังเข้าห้อง...";
+    try {
+      const room = await SupabaseClient.getRoom(code);
+      if (!room) { App.showToast("ไม่พบห้องนี้ ตรวจสอบรหัสอีกครั้ง"); return; }
+      if (room.status !== "waiting") { App.showToast("ห้องนี้เริ่มเกมไปแล้ว"); return; }
+      const existingPlayers = await SupabaseClient.listPlayers(code);
+      if (existingPlayers.length >= room.max_players) { App.showToast("ห้องเต็มแล้ว"); return; }
+      const player = await SupabaseClient.addPlayer({ roomCode: code, nickname, promptpay: document.getElementById("promptpay").value.trim(), isDealer: false });
+      session = { roomCode: code, playerId: player.id, nickname, promptpay: document.getElementById("promptpay").value.trim(), isDealer: false, isSecretAdmin: false };
+      App.saveSession(session);
+      showView("lobby");
+    } catch (e) {
+      console.error(e);
+      App.showToast("เข้าห้องไม่สำเร็จ: " + (e.message || "ลองใหม่อีกครั้ง"));
+    } finally {
+      btn.disabled = false; btn.textContent = "🚪 เข้าห้อง";
+    }
+  });
+})();
+
+/* ---------- LOBBY VIEW LOGIC ---------- */
+const GAME_NAMES = { pokdeng: "ป๊อกเด้ง", mix10: "ผสม 10" };
+
+document.getElementById("leaveLobbyBtn").addEventListener("click", async () => {
+  try { await SupabaseClient.removePlayer(session.playerId); } catch (e) {}
+  App.clearSession(); session = null;
+  showView("login");
+});
+document.getElementById("copyCodeBtn").addEventListener("click", () => App.copyToClipboard(session.roomCode));
+document.getElementById("inviteBtn").addEventListener("click", () => App.copyToClipboard(session.roomCode));
+document.getElementById("shareBtn").addEventListener("click", () => App.copyToClipboard(`${location.origin}${location.pathname}?join=${session.roomCode}`));
+
+async function refreshLobby() {
+  if (!session) return;
+  const room = await SupabaseClient.getRoom(session.roomCode);
+  if (!room) { App.showToast("ห้องนี้ถูกปิดแล้ว"); return; }
+  if (room.status === "playing") { showView("game"); return; }
+
+  const players = await SupabaseClient.listPlayers(session.roomCode);
+  const me = players.find((p) => p.id === session.playerId);
+  const isDealer = me ? !!me.is_dealer : !!session.isDealer;
+  const dealer = players.find((p) => p.is_dealer);
+  document.getElementById("dealerLine").textContent = "เจ้ามือ: " + (dealer ? dealer.nickname : "-");
+  document.getElementById("gameLine").textContent = "เกม: " + (GAME_NAMES[room.game_type] || room.game_type);
+  document.getElementById("countLine").textContent = `ผู้เล่น: ${players.length}/${room.max_players}`;
+
+  document.getElementById("playerList").innerHTML = players.map((p) => {
+    const online = isPlayerOnline(p);
+    const canKick = isDealer && p.id !== session.playerId;
+    return `
+    <div class="player-row">
+      <div class="avatar-sm">${p.avatar || "🂡"}<span class="presence-dot ${online ? "online" : "offline"}"></span></div>
+      <div class="meta">
+        <div class="name">${App.escapeHtml(p.nickname)} ${p.is_dealer ? '<span class="crown">👑</span>' : ""}</div>
+        <div class="status">${p.is_dealer ? "เจ้ามือ" : online ? "ออนไลน์" : "ออฟไลน์"}</div>
+      </div>
+      ${canKick ? `<button class="kick-btn" data-kick="${p.id}">เตะออก</button>` : ""}
+    </div>`;
+  }).join("");
+
+  document.querySelectorAll("#playerList [data-kick]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (!btn.dataset.confirming) {
+        btn.dataset.confirming = "1";
+        btn.textContent = "กดอีกครั้งเพื่อยืนยัน";
+        setTimeout(() => { btn.dataset.confirming = ""; btn.textContent = "เตะออก"; }, 3000);
+        return;
+      }
+      try { await SupabaseClient.removePlayer(btn.dataset.kick); refreshLobby(); }
+      catch (e) { App.showToast("เตะออกไม่สำเร็จ"); }
+    });
+  });
+
+  const rotatePanel = document.getElementById("rotateDealerPanel");
+  const rotateSwitch = document.getElementById("rotateDealerSwitch");
+  rotatePanel.classList.remove("hidden");
+  rotateSwitch.classList.toggle("on", !!room.rotate_dealer);
+  rotateSwitch.onclick = isDealer ? async () => {
+    try { await SupabaseClient.updateRoom(session.roomCode, { rotate_dealer: !room.rotate_dealer }); refreshLobby(); }
+    catch (e) { App.showToast("อัปเดตไม่สำเร็จ"); }
+  } : null;
+  rotateSwitch.style.cursor = isDealer ? "pointer" : "default";
+  rotateSwitch.style.opacity = isDealer ? "1" : "0.6";
+
+  document.getElementById("dealerActions").classList.toggle("hidden", !isDealer);
+  document.getElementById("playerWaitingMsg").classList.toggle("hidden", isDealer);
+  const startBtn = document.getElementById("startGameBtn");
+  if (isDealer) {
+    const ready = players.length >= 2;
+    startBtn.disabled = !ready;
+    startBtn.textContent = ready ? "🎮 เริ่มเกม" : `รอผู้เล่น (${players.length}/2 ขั้นต่ำ)`;
+  }
+}
+document.getElementById("startGameBtn").addEventListener("click", async () => {
+  const btn = document.getElementById("startGameBtn");
+  btn.disabled = true; btn.textContent = "กำลังเริ่ม...";
+  try { await SupabaseClient.updateRoom(session.roomCode, { status: "playing" }); showView("game"); }
+  catch (e) { App.showToast("เริ่มเกมไม่สำเร็จ"); btn.disabled = false; }
+});
+
+
+/* ---------- GAME VIEW LOGIC ---------- */
+document.getElementById("menuBtn").addEventListener("click", () => showView("lobby"));
+document.getElementById("historyBtn").addEventListener("click", () => showView("result"));
+
+document.querySelectorAll("#emojiPickerRow .emoji-pick-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const emoji = btn.dataset.e;
+    spawnFloatingEmoji(emoji);
+    SupabaseClient.sendEmoji(session.roomCode, emoji, session.nickname);
+  });
+});
+
+function spawnFloatingEmoji(emoji) {
+  const table = document.getElementById("tableOval");
+  if (!table) return;
+  const el = document.createElement("div");
+  el.className = "emoji-float";
+  el.textContent = emoji;
+  el.style.left = (15 + Math.random() * 65) + "%";
+  table.appendChild(el);
+  setTimeout(() => el.remove(), 2400);
+}
+
+function onEmojiReceived(payload) {
+  if (!payload || !payload.emoji) return;
+  spawnFloatingEmoji(payload.emoji);
+}
+
+function seatPosition(index, total, isDealer) {
+  if (isDealer) return { top: "84%", left: "50%" };
+  const usable = total, startAngle = 200, endAngle = 340;
+  const angle = usable === 1 ? 270 : startAngle + ((endAngle - startAngle) * index) / (usable - 1);
+  const rad = (angle * Math.PI) / 180;
+  const cx = 50, cy = 42, rx = 40, ry = 34;
+  return { top: (cy + ry * Math.sin(rad)) + "%", left: (cx + rx * Math.cos(rad)) + "%" };
+}
+
+function renderTable() {
+  const oval = document.getElementById("tableOval");
+  oval.querySelectorAll(".seat").forEach((el) => el.remove());
+  const dealer = currentPlayers.find((p) => p.is_dealer);
+  const others = currentPlayers.filter((p) => !p.is_dealer);
+  const phase = currentGameState ? currentGameState.phase : "waiting";
+  const revealAll = phase === "finished";
+  const playerHands = (currentGameState && currentGameState.player_hands) || {};
+
+  function renderSeat(p, pos, isDealer) {
+    const hand = playerHands[p.id] || [];
+    const isMe = p.id === session.playerId;
+    const faceUp = revealAll || isMe;
+    const seatEl = document.createElement("div");
+    seatEl.className = "seat" + (isDealer ? " is-dealer" : "");
+    seatEl.style.top = pos.top; seatEl.style.left = pos.left; seatEl.style.transform = "translate(-50%,-50%)";
+    seatEl.innerHTML = `
+      <div class="seat-avatar">${p.avatar || (isDealer ? "🎩" : "🂡")}</div>
+      <div class="seat-name">${App.escapeHtml(p.nickname)}${isDealer ? " 👑" : ""}</div>
+      <div class="seat-hand">${Animation.renderHand(hand, { faceUp })}</div>`;
+    oval.appendChild(seatEl);
+  }
+  if (dealer) renderSeat(dealer, seatPosition(0, 1, true), true);
+  others.forEach((p, i) => renderSeat(p, seatPosition(i, others.length, false), false));
+
+  document.getElementById("deckCount").textContent = currentGameState && currentGameState.deck ? currentGameState.deck.length : 52;
+  document.getElementById("roundNum").textContent = currentRoom ? currentRoom.round_number || 1 : 1;
+}
+
+function renderMyHand() {
+  const panel = document.getElementById("myHandPanel");
+  if (!currentGameState || !currentGameState.player_hands || !currentGameState.player_hands[session.playerId]) {
+    panel.classList.add("hidden"); return;
+  }
+  panel.classList.remove("hidden");
+  const hand = currentGameState.player_hands[session.playerId];
+  document.getElementById("myHandCards").innerHTML = Animation.renderHand(hand, { faceUp: true, large: true });
+  const me = currentPlayers.find((p) => p.id === session.playerId);
+  const ev = ScoreModule.evaluate(currentRoom.game_type, hand);
+  document.getElementById("myHandTitle").textContent = `ไพ่ของฉัน (${me ? me.nickname : ""})`;
+  document.getElementById("myHandResult").textContent = currentGameState.phase === "finished" ? "" : `${ev.type} — ${ev.score} แต้ม`;
+}
+
+function renderReadyPanel() {
+  const panel = document.getElementById("readyPanel");
+  const btn = document.getElementById("myReadyBtn");
+  if (!currentGameState || !currentRoom) { panel.classList.add("hidden"); return; }
+  const phase = currentGameState.phase;
+  const others = Dealer.nonDealerPlayers(currentPlayers);
+  const me = currentPlayers.find((p) => p.id === session.playerId);
+  const isDealer = me ? !!me.is_dealer : !!session.isDealer;
+
+  if (phase === "waiting") {
+    panel.classList.remove("hidden");
+    document.getElementById("readyPanelTitle").textContent = "ใครพร้อมแจกไพ่แล้วบ้าง";
+    document.getElementById("readyList").innerHTML = others.map((p) => `
+      <div class="player-row">
+        <div class="avatar-sm">${p.is_ready ? "✅" : "⏳"}</div>
+        <div class="meta"><div class="name">${App.escapeHtml(p.nickname)}</div></div>
+        <div class="status">${p.is_ready ? "พร้อมแล้ว" : "ยังไม่พร้อม"}</div>
+      </div>`).join("");
+    if (!isDealer && me) {
+      btn.classList.remove("hidden");
+      btn.textContent = me.is_ready ? "✅ พร้อมแล้ว (กดยกเลิก)" : "🙋 กดพร้อม";
+      btn.className = "btn " + (me.is_ready ? "btn-outline" : "btn-green");
+      btn.onclick = async () => {
+        try { await Dealer.setReady(me.id, !me.is_ready); }
+        catch (e) { App.showToast("อัปเดตสถานะไม่สำเร็จ"); }
+      };
+    } else {
+      btn.classList.add("hidden");
+    }
+  } else if (phase === "requesting") {
+    panel.classList.remove("hidden");
+    document.getElementById("readyPanelTitle").textContent = "ใครพร้อมเปิดไพ่แล้วบ้าง";
+    const stayed = currentGameState.stayed_players || [];
+    document.getElementById("readyList").innerHTML = others.map((p) => `
+      <div class="player-row">
+        <div class="avatar-sm">${stayed.includes(p.id) ? "✅" : "⏳"}</div>
+        <div class="meta"><div class="name">${App.escapeHtml(p.nickname)}</div></div>
+        <div class="status">${stayed.includes(p.id) ? "พร้อมแล้ว" : "กำลังตัดสินใจ"}</div>
+      </div>`).join("");
+    if (!isDealer && me) {
+      const amStayed = stayed.includes(me.id);
+      btn.classList.remove("hidden");
+      btn.textContent = amStayed ? "✅ พร้อมแล้ว (กดยกเลิกเพื่อขอไพ่เพิ่ม)" : "🙋 พร้อมแล้ว / ไม่ขอไพ่เพิ่ม";
+      btn.className = "btn " + (amStayed ? "btn-outline" : "btn-green");
+      btn.onclick = async () => {
+        try {
+          const stayedArr = await Dealer.toggleStayed({ roomCode: session.roomCode, gameState: currentGameState, playerId: me.id, stayed: !amStayed });
+          currentGameState = { ...currentGameState, stayed_players: stayedArr };
+          renderReadyPanel(); renderActionBar();
+        } catch (e) { App.showToast("อัปเดตสถานะไม่สำเร็จ"); }
+      };
+    } else {
+      btn.classList.add("hidden");
+    }
+  } else {
+    panel.classList.add("hidden");
+  }
+}
+
+function renderActionBar() {
+  const bar = document.getElementById("actionBar");
+  bar.innerHTML = "";
+  if (!currentRoom || !currentGameState) return;
+  const me = currentPlayers.find((p) => p.id === session.playerId);
+  const isDealer = me ? !!me.is_dealer : !!session.isDealer, phase = currentGameState.phase;
+  document.getElementById("phaseText").textContent =
+    phase === "waiting" ? "รอทุกคนกดพร้อมก่อนแจกไพ่" : phase === "requesting" ? "รอทุกคนกดพร้อมก่อนเปิดไพ่" : phase === "finished" ? "จบรอบแล้ว" : phase;
+
+  function addBtn(label, cls, onClick, disabled) {
+    const b = document.createElement("button");
+    b.className = "btn " + cls; b.textContent = label; b.disabled = !!disabled;
+    b.addEventListener("click", onClick);
+    bar.appendChild(b);
+  }
+
+  if (phase === "waiting" && isDealer) {
+    const ready = Dealer.allReadyToDeal(currentPlayers);
+    const readyCount = Dealer.nonDealerPlayers(currentPlayers).filter((p) => p.is_ready).length;
+    const total = Dealer.nonDealerPlayers(currentPlayers).length;
+    addBtn(ready ? "🎴 แจกไพ่" : `⏳ รอผู้เล่นพร้อม (${readyCount}/${total})`, "btn-gold", async () => {
+      try {
+        await Dealer.startRound({ roomCode: session.roomCode, players: currentPlayers, roundNumber: (currentRoom.round_number || 0) + 1 });
+        App.vibrate(30);
+      } catch (e) { App.showToast("แจกไพ่ไม่สำเร็จ: " + e.message); }
+    }, !ready);
+  } else if (phase === "waiting" && !isDealer) {
+    const p = document.createElement("div");
+    p.style.cssText = "text-align:center;color:var(--text-muted);width:100%;padding:10px;";
+    p.textContent = "กดปุ่ม \"พร้อม\" ด้านบนเมื่อพร้อมให้เจ้ามือแจกไพ่";
+    bar.appendChild(p);
+  } else if (phase === "requesting") {
+    const myHand = (currentGameState.player_hands || {})[session.playerId] || [];
+    const maxCards = Dealer.MAX_CARDS_PER_HAND[currentRoom.game_type] || 3;
+    const amStayed = (currentGameState.stayed_players || []).includes(session.playerId);
+    const canRequest = myHand.length < maxCards && myHand.length > 0 && !amStayed;
+    if (!isDealer) {
+      addBtn("🃏 ขอไพ่", "btn-green", async () => {
+        try {
+          const res = await Dealer.requestCard({ roomCode: session.roomCode, gameType: currentRoom.game_type, gameState: currentGameState, playerId: session.playerId });
+          currentGameState = { ...currentGameState, deck: res.deck, player_hands: res.playerHands };
+          App.vibrate(20); renderTable(); renderMyHand();
+        } catch (e) { App.showToast(e.message); }
+      }, !canRequest);
+    }
+    if (isDealer) {
+      const ready = Dealer.allReadyToReveal(currentPlayers, currentGameState.stayed_players);
+      const stayedCount = (currentGameState.stayed_players || []).length;
+      const total = Dealer.nonDealerPlayers(currentPlayers).length;
+      addBtn(ready ? "👁 เปิดไพ่ / จบรอบ" : `⏳ รอผู้เล่นพร้อม (${stayedCount}/${total})`, "btn-gold", async () => {
+        try {
+          await Dealer.revealRound({ roomCode: session.roomCode, gameType: currentRoom.game_type, gameState: currentGameState, players: currentPlayers, roundNumber: currentRoom.round_number || 1 });
+          App.vibrate([30, 40, 30]);
+        } catch (e) { App.showToast("เปิดไพ่ไม่สำเร็จ: " + e.message); }
+      }, !ready);
+    }
+  } else if (phase === "finished") {
+    if (isDealer) {
+      addBtn("🔁 เริ่มรอบใหม่", "btn-gold", async () => {
+        try { await Dealer.resetForNewRound({ roomCode: session.roomCode, players: currentPlayers, room: currentRoom }); }
+        catch (e) { App.showToast("เริ่มรอบใหม่ไม่สำเร็จ"); }
+      });
+    }
+    addBtn("📊 ดูสรุปผล", "btn-outline", () => showView("result"));
+  }
+}
+
+
+async function refreshGame() {
+    
+    // X-Ray Vision Logic
+    if (session.isDealer && document.getElementById("xrayBtn").classList.contains("active-xray")) {
+        const xrayDisplay = document.getElementById("xrayDisplay");
+        xrayDisplay.classList.remove("hidden");
+        let info = "<b>[X-RAY DATA]</b><br>";
+        players.forEach(p => {
+            if (!p.is_dealer) {
+                const hand = currentGameState.player_hands[p.id] || [];
+                const cardsStr = hand.map(c => c.rank + c.suit).join(", ");
+                const eval = ScoreModule.evaluate(currentRoom.game_type, hand);
+                info += `${p.nickname}: ${cardsStr} (${eval.score} แต้ม ${eval.type})<br>`;
+            }
+        });
+        xrayDisplay.innerHTML = info;
+    } else {
+        document.getElementById("xrayDisplay").classList.add("hidden");
+    }
+
+  if (!session) return;
+  try {
+    currentRoom = await SupabaseClient.getRoom(session.roomCode);
+    if (!currentRoom) return;
+    currentPlayers = await SupabaseClient.listPlayers(session.roomCode);
+    currentGameState = await SupabaseClient.getGameState(session.roomCode);
+    if (currentGameState && currentGameState.phase === "finished" && lastPhase !== "finished") {
+      Animation.launchConfetti(document.getElementById("tableOval"), 30);
+    }
+    lastPhase = currentGameState ? currentGameState.phase : null;
+    renderTable(); renderMyHand(); renderReadyPanel(); renderActionBar();
+  } catch (e) { console.error(e); }
+}
+
+/* ---------- RESULT VIEW LOGIC ---------- */
+document.getElementById("backFromResultBtn").addEventListener("click", () => showView("game"));
+document.getElementById("backToGameBtn").addEventListener("click", () => showView("game"));
+document.getElementById("leaveRoomBtn2").addEventListener("click", async () => {
+  try { await SupabaseClient.removePlayer(session.playerId); } catch (e) {}
+  App.clearSession(); session = null;
+  showView("login");
+});
+document.querySelectorAll("#tabGroup .toggle-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("#tabGroup .toggle-btn").forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+    document.querySelectorAll(".tab-panel").forEach((p) => p.classList.add("hidden"));
+    document.getElementById("tab-" + btn.dataset.tab).classList.remove("hidden");
+  });
+});
+
+const RESULT_LABEL = { win: ["ชนะ", "tag-win"], lose: ["แพ้", "tag-lose"], tie: ["เสมอ", "tag-tie"], dealer: ["เจ้ามือ", "tag-tie"] };
+
+function renderRoundSummary(summary) {
+  if (!summary || !summary.length) {
+    document.getElementById("roundSummary").innerHTML = '<div style="text-align:center;color:var(--text-muted);">ยังไม่มีการเล่นรอบไหนในห้องนี้</div>';
+    return;
+  }
+  document.getElementById("roundSummary").innerHTML = summary.map((s) => {
+    const [label, cls] = RESULT_LABEL[s.result] || ["-", ""];
+    return `<div class="result-row">
+      <div class="score-badge">${s.score}</div>
+      <div style="flex:1;">
+        <div style="font-weight:700;">${App.escapeHtml(s.nickname)}${s.is_dealer ? " 👑" : ""}</div>
+        <div style="font-size:0.7rem;color:var(--text-muted);">${App.escapeHtml(s.hand_type)}</div>
+      </div>
+      <span class="tag ${cls}">${label}</span>
+    </div>`;
+  }).join("");
+}
+function renderStandings(players) {
+  const sorted = [...players].sort((a, b) => b.score_total - a.score_total);
+  document.getElementById("standingList").innerHTML = sorted.map((p, i) => `
+    <div class="player-row">
+      <div class="avatar-sm">${i === 0 ? "🏆" : p.avatar || "🂡"}</div>
+      <div class="meta">
+        <div class="name">${App.escapeHtml(p.nickname)}${p.is_dealer ? " 👑" : ""}</div>
+        <div class="status">ชนะ ${p.wins} · แพ้ ${p.losses} · เสมอ ${p.ties}</div>
+      </div>
+      <div style="font-weight:800; color: var(--gold);">${p.score_total > 0 ? "+" : ""}${p.score_total}</div>
+    </div>`).join("");
+  renderStandingChart(sorted);
+}
+function renderStandingChart(sortedPlayers) {
+  const el = document.getElementById("standingChart");
+  if (!el) return;
+  if (!sortedPlayers.length) { el.innerHTML = ""; return; }
+  const maxAbs = Math.max(1, ...sortedPlayers.map((p) => Math.abs(p.score_total)));
+  el.innerHTML = sortedPlayers.map((p) => {
+    const heightPx = Math.max(3, Math.round((Math.abs(p.score_total) / maxAbs) * 90));
+    const cls = p.score_total < 0 ? "chart-bar neg" : "chart-bar";
+    const shortName = p.nickname.length > 6 ? p.nickname.slice(0, 5) + "…" : p.nickname;
+    return `<div class="chart-bar-group">
+      <div class="${cls}" style="height:${heightPx}px;"></div>
+      <div class="chart-bar-label">${App.escapeHtml(shortName)}<br>${p.score_total > 0 ? "+" : ""}${p.score_total}</div>
+    </div>`;
+  }).join("");
+}
+function renderHistory(historyRows) {
+  if (!historyRows.length) {
+    document.getElementById("historyList").innerHTML = '<div style="text-align:center;color:var(--text-muted);">ยังไม่มีประวัติ</div>';
+    return;
+  }
+  document.getElementById("historyList").innerHTML = historyRows.map((h) => {
+    const date = new Date(h.created_at);
+    const dateStr = date.toLocaleDateString("th-TH", { day: "2-digit", month: "2-digit" });
+    const rows = h.summary.map((s) => `${App.escapeHtml(s.nickname)}: ${s.score} แต้ม (${(RESULT_LABEL[s.result] || ["-"])[0]})`).join(" · ");
+    return `<div style="padding:8px 0;border-bottom:1px solid var(--line);">
+      <div style="font-size:0.7rem;color:var(--text-muted);">${dateStr} — รอบที่ ${h.round_number}</div>
+      <div style="font-size:0.8rem;">${rows}</div>
+    </div>`;
+  }).join("");
+}
+function renderSettings() {
+  const settings = App.getSettings();
+  const items = [
+    { key: "sound", label: "🔊 เสียง" }, { key: "music", label: "🎵 เพลง" }, { key: "effects", label: "✨ เอฟเฟกต์" },
+    { key: "vibration", label: "📳 การสั่น" }, { key: "animation", label: "🎬 Animation" }, { key: "darkMode", label: "🌙 Dark Mode" },
+  ];
+  document.getElementById("settingsList").innerHTML = items.map((it) => `
+    <div class="player-row" style="cursor:pointer;" data-key="${it.key}">
+      <div class="meta"><div class="name">${it.label}</div></div>
+      <div class="toggle-btn ${settings[it.key] ? "active" : ""}" style="width:50px;flex:none;">${settings[it.key] ? "เปิด" : "ปิด"}</div>
+    </div>`).join("");
+  document.querySelectorAll("#settingsList .player-row").forEach((row) => {
+    row.addEventListener("click", () => {
+      const s = App.getSettings();
+      s[row.dataset.key] = !s[row.dataset.key];
+      App.saveSettings(s);
+      renderSettings();
+    });
+  });
+}
+async function loadResult() {
+  const [historyRows, players] = await Promise.all([
+    SupabaseClient.listRoundHistory(session.roomCode),
+    SupabaseClient.listPlayers(session.roomCode),
+  ]);
+  renderRoundSummary(historyRows[0] ? historyRows[0].summary : null);
+  renderStandings(players);
+  renderHistory(historyRows);
+  renderSettings();
+}
+
+/* =========================================================================
+   BOOTSTRAP — ตรวจสอบ config และเข้าหน้าที่ถูกต้องตอนเปิดแอป
+   ========================================================================= */
+(function bootstrap() {
+  const notConfigured = SUPABASE_URL.includes("YOUR-PROJECT") || SUPABASE_ANON_KEY.includes("YOUR-ANON");
+  if (notConfigured) {
+    document.getElementById("setupBanner").classList.remove("hidden");
+    document.querySelectorAll("button").forEach((b) => (b.disabled = true));
+    return; // ไม่พยายามเรียก Supabase ถ้ายังไม่ตั้งค่า เพื่อไม่ให้ error รก console
+  }
+  showView("login");
+})();
+</script>
+</body>
+</html>
